@@ -13,7 +13,6 @@
 #include "graphSetReader.h"
 #include "graph.h"
 #include "utils.h"
-#include "zeroin.h"
 #include "EmbeddingSpacePercolationPar.h"
 #include "EmbeddingSpacePercolation.h"
 
