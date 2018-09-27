@@ -17,18 +17,40 @@ we need to install the follow libraries in order to compile R-GPM:
 libboost-all-dev
 libtbb-dev
 libgsl-dev
-
+libsparsehash-dev
 ```
 
 ### Installing
 
-Run the follow command:
+Run the follow command in the root directory:
 
 ```
-Makefile
+makefile
 ```
 
 ## Running the tests
+
+The applications are available in the direction *apps*.
+For example, the graph pattern mining application 
+which uses percolation as a subgraph relation 
+is in the directory *apps/percolation*.
+To compile a particular application we need to 
+execute the follow command in such application directory: 
+
+```
+./compile.sh
+```
+
+Then, a executable (binary) 
+will be generated and we can 
+run the application and get a description 
+of its parameters
+by executing 
+the follow command line:
+
+```
+./app -h
+```
 
 ## License
 
