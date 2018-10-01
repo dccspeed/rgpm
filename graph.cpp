@@ -644,3 +644,60 @@ IntIntMap Graph::getEdgeLabelDistribution() {
 void Graph::randomizeNodes() {
 	std::random_shuffle( nodes.begin(), nodes.end() );
 }
+
+std::vector<int> Graph::getPathBetweenNodes(int id1, int id2, int k) {
+
+	std::unordered_set<int> reach;
+	std::stack<std::pair<int, int>> q;
+	reach.insert(id1);
+	q.push(std::pair<int, int> (id1,0));
+	std::cout << "add "<< id1 << std::endl;
+
+
+	while (!q.empty()) {
+		std::pair<int,int> top  = q.top();
+		std::vector<int> &neighs = getNeighborhoodIdxVertexOfVertexAt(top.first);
+		
+		//std::cout << "top first " << top.first << " second " << neighs[top.second] << " idx " << top.second << std::endl;
+		
+		//queue is full
+		if ((int) q.size() == k) {
+			reach.erase(top.first);
+			q.pop();
+			//std::cout << "remove full "<< top.first << std::endl;
+		}
+		//neighbors have finished
+		else if (top.second >= (int) neighs.size()) {
+			reach.erase(top.first);
+			q.pop();
+			//std::cout << "remove no-neigh " << top.first << std::endl;
+		}
+		//add new neighbor
+		else {
+			q.top().second++;
+			if (reach.find(neighs[top.second]) == reach.end()) {
+				reach.insert(neighs[top.second]);
+				q.push(std::pair<int, int> (neighs[top.second],0));
+				//std::cout << "add "<< neighs[top.second] << std::endl;
+				
+				// found a valid path
+				if (neighs[top.second] == id2) {
+					//std::cout << "valid path found" << std::endl;
+					break;
+				}
+			}
+		}
+
+	}
+
+	std::vector<int> path;
+	//path was found
+	if (!q.empty()) {
+		while (!q.empty()) {
+			path.push_back(q.top().first);
+			q.pop();
+		}
+	}
+
+	return path; 
+}
