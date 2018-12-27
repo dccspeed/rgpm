@@ -25,7 +25,7 @@ libsparsehash-dev
 Run the follow command in the root directory:
 
 ```
-makefile
+make clean; make
 ```
 
 ## Running the tests
