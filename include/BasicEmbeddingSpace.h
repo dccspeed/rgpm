@@ -28,21 +28,26 @@ struct e_cache {
 	public:
 		static const int NUM_EXTRA_NEIGHBORS = 10;
 		
+		int numberOfNeighbors;
 		double degree;
 		int used_mods;
+		//reservoir<Mod> rmods;
 		Mod mods[NUM_EXTRA_NEIGHBORS];
 
-		e_cache():degree(0), used_mods(NUM_EXTRA_NEIGHBORS){};
+		e_cache(): numberOfNeighbors(0), degree(0), used_mods(NUM_EXTRA_NEIGHBORS) {};
+		//e_cache(): numberOfNeighbors(0), degree(0), used_mods(NUM_EXTRA_NEIGHBORS), rmods(NUM_EXTRA_NEIGHBORS) {};
 
 		void reset() {
+			numberOfNeighbors = 0;
 			degree = 0;
 			used_mods = NUM_EXTRA_NEIGHBORS;
 		}
 		void print() const {
-			std::cout << "e_cache { degree: " << degree << " used_mods: " << used_mods << " } " << std::endl;
+			std::cout << "e_cache { number of neighbors: " << numberOfNeighbors << " degree: " << degree << " used_mods: " << used_mods << " } " << std::endl;
 			for (int i = 0; i < NUM_EXTRA_NEIGHBORS; i++) {
 				std::cout << "mods["<< i << "]: ";
 				mods[i].print();
+				//rmods.rvr[i].print();
 			}
 		}
 };
@@ -51,7 +56,7 @@ typedef lru_cache<size_t, e_cache> EmbeddingCache;
 
 template <class T, class A> 
 class EmbeddingSpace {
-
+		
 	public : 
 		Graph *g;
 		T currEmbedding;
@@ -78,7 +83,7 @@ class EmbeddingSpace {
 		void checkConfigFile();
 		void setAggOutput(std::string output) {aggOutput = output;};
 		
-		bool init_rw();
+		virtual bool init_rw();
 		void run_rw();
 		//void run_rw_query(Graph &pattern);
 		void run_exact_recursive();
@@ -107,9 +112,12 @@ class EmbeddingSpace {
 
 		void updateGroupsOwnerFromEmbeddingPair(T &, T &, std::unordered_map<int, int> &, std::vector<size_t> &);
 		void getGroupsOwnerFromEmbeddingRec(T &, T &, int,  std::unordered_map<int, int> &, std::vector<size_t> &);
-		int getNumGroupsFromEmbedding(T &);
-		int getNumGroupsFromEmbedding(T &, std::vector<T> &);
+		//int getNumGroupsFromEmbedding(T &);
+		//int getNumGroupsFromEmbedding(T &, std::vector<T> &);
 
+		virtual double getEmbeddingScore(T &);
+		int getEmbeddingNumNeighbors(T &);
+		int getEmbeddingNumNeighbors(T &, ModSet &);
 		double getEmbeddingDegree(T &);
 		double getEmbeddingDegree(T &, ModSet &);
 		std::pair<Mod,bool> getNextRandomModification(T &);
@@ -133,7 +141,7 @@ class EmbeddingSpace {
 		int MAX_NUM_TOURS=10000;      
 		int MAX_TOUR_STEPS=100000;
 		int MAX_INIT_ATTEMPT=10000;
-		int MAX_CACHE_SIZE=1000000;
+		int MAX_CACHE_SIZE=10000000;
 		int MAX_AGG_SIZE=1000000;
 		int INITIAL_NODE=-1;
 		std::pair<int,int> INITIAL_PAIR_NODES=std::pair<int,int>(-1,-1);
@@ -155,30 +163,32 @@ class EmbeddingSpace {
 		virtual void aggregateEmbeddingClass(T &, TourStats &, A &);
 		
 //template <class T>
-inline bool computeEmbeddingNeighborhood(T &e, e_cache &neighborhood, ModSet &mods) {
+virtual bool computeEmbeddingNeighborhood(T &e, e_cache &neighborhood, ModSet &mods) {
 	neighborhood.reset();
 	//neighborhood.print();
-	std::unordered_set<int> checkedExpansions;
+	//std::unordered_set<int> checkedExpansions;
 	std::unordered_map<size_t, std::unordered_set<int>> contractionMap;
         //size_t hash = e.getHash();
 
 	std::vector<int> words = e.getWords();
-	checkedExpansions.insert(words.begin(), words.end());
+	//checkedExpansions.insert(words.begin(), words.end());
 	//T embeddingCopy = e;
 	
 	//std::cout << "start looking to the neighbors" << std::endl;
 	
-	for (int i = 0; i < (int) words.size(); i++) {
-		NeighborhoodSet expansions = e.getValidElementsForExpansion(words[i]);
+	std::unordered_set<int> expansions = e.getValidElementsForExpansion();
+	//for (int i = 0; i < (int) words.size(); i++) {
+	//	NeighborhoodSet expansions = e.getValidElementsForExpansion(words[i]);
 		if (expansions.empty()) {	
 			std::cout << "impossible to walk! ";
 			std::cout << "num possible exp. equal to " << expansions.size() << std::endl;
 			exit(1);
 		}
-		for (NeighborhoodSet::iterator it = expansions.begin(); it!= expansions.end(); it++) {
+		//for (NeighborhoodSet::iterator it = expansions.begin(); it!= expansions.end(); it++) {
+		for (std::unordered_set<int>::iterator it = expansions.begin(); it!= expansions.end(); it++) {
 			//std::cout << "exp: " << *it << std::endl;
-			if (checkedExpansions.find(*it) != checkedExpansions.end()) continue;
-			checkedExpansions.insert(*it);
+	//		if (checkedExpansions.find(*it) != checkedExpansions.end()) continue;
+	//		checkedExpansions.insert(*it);
 			std::pair<size_t,int> connectionHash = e.getWordConnectionHash(*it, mods);
 			//continue if there is no connections, which is possible if mods.size != 0;
 			if (connectionHash.second==0) continue;
@@ -193,7 +203,7 @@ inline bool computeEmbeddingNeighborhood(T &e, e_cache &neighborhood, ModSet &mo
 				std::cout << "error: contractions empty!" << std::endl;
 				exit(1);
 			}
-			//fill the neighborhood randomly
+			//fill the neighborhood randomly with reservoir
 			for (int k = 0; k < e_cache::NUM_EXTRA_NEIGHBORS; k++) {
 				double prob = Randness::instance().random_uni01();
 				if (prob <= (double) itContraction->second.size()/(neighborhood.degree+itContraction->second.size())) {
@@ -201,8 +211,19 @@ inline bool computeEmbeddingNeighborhood(T &e, e_cache &neighborhood, ModSet &mo
 				}
 			}
 			neighborhood.degree+=itContraction->second.size();
+			/*for (int c : itContraction->second) {
+				Mod mod(*it, c);
+				//compute weight of this change in the HON
+				double w = 1;
+				neighborhood.degree+=w;
+				double prob = Randness::instance().random_uni01();
+				if (prob <= w/(neighborhood.degree)) {
+					neighborhood.mods[0].addId = *it ;
+					neighborhood.mods[0].rmId = c;
+				}
+			}*/
 		}
-	}
+	//}
 	
 	//checking if there is an error.
 	if (neighborhood.degree == 0) {
@@ -234,26 +255,28 @@ inline bool computeEmbeddingNeighborhood(T &e, e_cache &neighborhood, ModSet &mo
 	return true;
 }
 
-inline std::vector<Mod> computeAllEmbeddingNeighborhood(T &e) {
-	std::unordered_set<int> checkedExpansions;
+virtual std::vector<Mod> computeAllEmbeddingNeighborhood(T &e) {
+	//td::unordered_set<int> checkedExpansions;
 	std::unordered_map<size_t, std::unordered_set<int>> contractionMap;
 
 	std::vector<int> words = e.getWords();
-	checkedExpansions.insert(words.begin(), words.end());
+	//checkedExpansions.insert(words.begin(), words.end());
 
 	std::vector<Mod> mods;
 	
-	for (int i = 0; i < (int) words.size(); i++) {
-		NeighborhoodSet expansions = e.getValidElementsForExpansion(words[i]);
+	std::unordered_set<int> expansions = e.getValidElementsForExpansion();
+	//for (int i = 0; i < (int) words.size(); i++) {
+	//	NeighborhoodSet expansions = e.getValidElementsForExpansion(words[i]);
 		if (expansions.empty()) {	
 			std::cout << "impossible to walk! ";
 			std::cout << "num possible exp. equal to " << expansions.size() << std::endl;
 			exit(1);
 		}
-		for (NeighborhoodSet::iterator it = expansions.begin(); it!= expansions.end(); it++) {
+		//for (NeighborhoodSet::iterator it = expansions.begin(); it!= expansions.end(); it++) {
+		for (std::unordered_set<int>::iterator it = expansions.begin(); it!= expansions.end(); it++) {
 			//std::cout << "exp: " << *it << std::endl;
-			if (checkedExpansions.find(*it) != checkedExpansions.end()) continue;
-			checkedExpansions.insert(*it);
+			//if (checkedExpansions.find(*it) != checkedExpansions.end()) continue;
+			//checkedExpansions.insert(*it);
 			std::pair<size_t,int> connectionHash = e.getWordConnectionHash(*it);
 			std::unordered_map<size_t, std::unordered_set<int>>::iterator itContraction = contractionMap.find(connectionHash.first);
 			if (itContraction == contractionMap.end()) {
@@ -269,13 +292,13 @@ inline std::vector<Mod> computeAllEmbeddingNeighborhood(T &e) {
 				mods.push_back(Mod(*it,*it2));	
 			}
 		}
-	}
+	//}
 	
 	return mods;
 }
 
 //template <class T>
-inline std::pair<Mod,bool> getNextRandomModificationByRejection(T &e, ModSet &mods) {
+virtual std::pair<Mod,bool> getNextRandomModificationByRejection(T &e, ModSet &mods) {
 	std::pair<Mod, bool> mod;
 	mod.second = false;
 
@@ -285,7 +308,7 @@ inline std::pair<Mod,bool> getNextRandomModificationByRejection(T &e, ModSet &mo
 		totalExt+=g->getDegreeOfNodeAt(words[i]);
 	}	
 
-	//std::cout << "GETTING RANDOM NEIGHBOR OF EMBEDDING: " << std::endl;
+	std::cout << "GETTING RANDOM NEIGHBOR OF EMBEDDING: " << e << std::endl;
 	//e.print();
 	int att = 0;
 	do {
@@ -321,7 +344,7 @@ inline std::pair<Mod,bool> getNextRandomModificationByRejection(T &e, ModSet &mo
 		std::vector<int>::iterator it = Randness::instance().random_element(expansions.begin(), expansions.end()); 
 		mod.first.addId = *it; 
 
-		//std::cout << "rmId: " << mod.first.rmId << " addId: " << mod.first.addId << " neighId: " << neighId << std::endl;
+		std::cout << "rmId: " << mod.first.rmId << " addId: " << mod.first.addId << " neighId: " << neighId << std::endl;
 		if (!e.existWord(mod.first.addId) && mods.find(mod.first)==mods.end()) {
 			e.replaceWord(mod.first.rmId, mod.first.addId );
 			//fix bias since the word can be connected to more than one vertex.
@@ -340,7 +363,6 @@ inline std::pair<Mod,bool> getNextRandomModificationByRejection(T &e, ModSet &mo
 	}
 	return mod;
 }
-        
 
 };
 

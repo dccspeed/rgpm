@@ -122,8 +122,16 @@ class TopQueue:public std::priority_queue<T, std::vector<T>, C> {
 		this->c.clear();
         	std::make_heap(this->c.begin(), this->c.end(), this->comp);
 	}
+	
+	void remakeHeap() {
+        	std::make_heap(this->c.begin(), this->c.end(), this->comp);
+	}
 
 	std::vector<T> &getVector() {
+		return this->c;
+	}
+	
+	std::vector<T> getVectorConst() const {
 		return this->c;
 	}
 
@@ -137,6 +145,47 @@ class TopQueue:public std::priority_queue<T, std::vector<T>, C> {
 	}
 };
 
+class CompareIntDec{
+    public:
+    bool operator() (const int l, const int r) const {
+        return (l > r);
+    }
+};
+
+class CompareIntInc{
+    public:
+    bool operator() (const int l, const int r) const {
+        return (l > r);
+    }
+};
+
+class CompareIntIntPairDec{
+    public:
+    bool operator() (const std::pair<int, int> &l, const std::pair<int,int> &r) const {
+        return (l.second > r.second);
+    }
+};
+
+class CompareIntIntPairInc{
+    public:
+    bool operator() (const std::pair<int, int> &l, const std::pair<int,int> &r) const {
+        return (l.second < r.second);
+    }
+};
+
+class CompareIntDoublePairInc{
+    public:
+    bool operator() (const std::pair<int, double> &l, const std::pair<int, double> &r) const {
+        return (l.second < r.second);
+    }
+}; 
+
+class CompareIntDoublePairDec{
+    public:
+    bool operator() (const std::pair<int, double> &l, const std::pair<int, double> &r) const {
+        return (l.second > r.second);
+    }
+};
 
 #endif
 

@@ -57,13 +57,17 @@ protected:
    double degree;
 
 public : 
-
      bool isPoisonPill;
-     BasicEmbedding() ;
-     BasicEmbedding(Graph *g) ;
+
+     BasicEmbedding();
+     BasicEmbedding(Graph *g);
+     virtual ~BasicEmbedding();
+     
      void reset();
      bool isEmpty();
      void init();
+     virtual std::vector<int> getValidElementsForExpansionSorted() = 0;
+     virtual std::vector<int> &getValidElementsForExpansionSorted(int) = 0;
      virtual std::unordered_set<int> getValidElementsForExpansion() = 0;
      virtual NeighborhoodSet &getValidElementsForExpansion(int) = 0;
      virtual std::unordered_set<int> getValidElementsForContraction() = 0;
@@ -91,9 +95,12 @@ public :
      bool isCanonicalEmbeddingWithWordAtPosition(int, int);
      bool isCanonicalEmbeddingWithWord(int);
      bool existWord(int wordId);
-     virtual bool hasVertex(int v) = 0;
-     virtual bool hasEdge(int v) = 0;
+     virtual bool hasVertex(int) = 0;
+     bool hasHighDegreeNode(double);
+     virtual bool hasEdge(int) = 0;
+     bool hasEdgeLabel(int);
      std::string toString();
+     size_t getNaiveCodeHashValue();
      size_t getBlissCodeHashValue();
      size_t getBlissCodeHashValue(std::vector<int> &);
      virtual bliss::Graph getBlissGraph() = 0;
@@ -121,7 +128,6 @@ public :
      virtual void print();
      void loadFromString(std::string &);
      void writeWordsToFile(std::ofstream &);
-     void blissTest();
 
      friend std::ostream& operator<<(std::ostream&os , BasicEmbedding& e){
 		os.setf(std::ios::fixed);

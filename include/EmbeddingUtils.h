@@ -11,7 +11,8 @@ class EmbeddingUtils {
    
    static const int NIL = -1; 
    static void articulationRec(int u, BasicEmbedding &, std::vector<std::vector<int> > & ,  int *, std::vector<int> &, std::vector<int> &, std::vector<int> &, std::vector<bool> &, std::vector<bool> &);
-   static void dfsRec(int u, BasicEmbedding &, std::vector<std::vector<int> > &, std::vector<bool>&, std::vector<int>&);
+   //static void dfsRec(int u, BasicEmbedding &, std::vector<std::vector<int> > &, std::vector<bool>&, std::vector<int>&);
+   static void dfsRec(int u, BasicEmbedding &, int[10][10], std::vector<bool>&, std::vector<int>&);
 
    EmbeddingUtils();
    

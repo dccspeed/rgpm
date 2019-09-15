@@ -23,7 +23,7 @@ public :
     EdgeInducedEmbedding();
     EdgeInducedEmbedding(Graph *g);
     void setFromEmbedding(EdgeInducedEmbedding other);
-    void copy(EdgeInducedEmbedding other);
+    //void copy(EdgeInducedEmbedding other);
     void reset();
     std::unordered_set<int> &getEdgesSet();
     std::vector<int> &getEdges();
@@ -42,6 +42,8 @@ public :
     void removeLastWord();
     NeighborhoodSet getWordNeighbors(int);
 
+    std::vector<int> getValidElementsForExpansionSorted();
+    std::vector<int> &getValidElementsForExpansionSorted(int);
     std::unordered_set<int> getValidElementsForExpansion();
     NeighborhoodSet &getValidElementsForExpansion(int);
     std::unordered_set<int> getValidElementsForContraction();

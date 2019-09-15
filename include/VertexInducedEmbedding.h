@@ -20,8 +20,9 @@ protected:
 public :
     VertexInducedEmbedding();
     VertexInducedEmbedding(Graph *g);
+    ~VertexInducedEmbedding();
     void setFromEmbedding(VertexInducedEmbedding other);
-    void copy(VertexInducedEmbedding other);
+    //void copy(VertexInducedEmbedding other);
     void reset();
     std::unordered_set<int> &getVertexSet();
     std::unordered_set<int> computeEdgeSet();
@@ -40,6 +41,8 @@ public :
     bool hasEdge(int v);
     NeighborhoodSet getWordNeighbors(int);
 
+    std::vector<int> getValidElementsForExpansionSorted();
+    std::vector<int> &getValidElementsForExpansionSorted(int);
     std::unordered_set<int> getValidElementsForExpansion();
     NeighborhoodSet &getValidElementsForExpansion(int);
     std::unordered_set<int> getValidElementsForContraction();

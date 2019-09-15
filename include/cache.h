@@ -31,15 +31,17 @@ public:
             > map_type;
 
     lru_cache(size_t capacity)
-        : m_capacity(capacity)
     {
 	hit = 0;
 	miss = 0;
+	m_capacity = capacity;
     }
     
     lru_cache()
-        : lru_cache(DEFAULT_CAPACITY)
     {
+	hit = 0;
+	miss = 0;
+	m_capacity = DEFAULT_CAPACITY;
     }
 
     ~lru_cache()

@@ -14,8 +14,9 @@
 #include "node.h"
 #include "edge.h"
 #include "random.h"
-//#include <boost/container/flat_set.hpp>
+#include <boost/container/flat_set.hpp>
 #include <google/dense_hash_set> // or sparse_hash_set, dense_hash_map, ...
+#include <boost/dynamic_bitset.hpp>
 
 /*class EdgeList:public std::list<Edge> {
 
@@ -53,13 +54,18 @@ struct Graph {
 		int largestDegree;
 		std::vector<Node> nodes;
 		std::vector<Edge> edges;
+		std::vector<int> comp;
 
+		uint numNodesIdx;
+		uint numEdgesIdx;
 	public:
 		//static std::unordered_map<size_t, size_t> pattern_to_canonical; 
 		std::vector<NeighborhoodSet> neighborhood;
 		std::vector<std::vector<int>> neighborhoodIdx;
 		std::vector<NeighborhoodSet> neighborhoodEdge;
+		std::vector<std::vector<int>> neighborhoodIdxEdge; //TODO
 		std::unordered_map<std::pair<int, int>, int, boost::hash<std::pair<int, int>>> nodes2edge;
+		boost::dynamic_bitset<> dirty_nodes;
 
 		Graph();
 		static Graph init();
@@ -70,33 +76,37 @@ struct Graph {
 		void setLabel(int);
 		int getType() const;
 		void setType(int);
-		int getNumberOfNodes() const;
-		int getNumberOfEdges() const;
-		int getNumberOfNodeLabels() const;
+		uint getNumberOfNodes() const;
+		uint getNumberOfEdges() const;
+		uint getNumberOfNodeLabels() const;
 		void setNumberOfNodeLabels(int);
 		int getNumberOfEdgeLabels() const;
 		void setNumberOfEdgeLabels(int);
 		Node &getNodeAt(int);
 		int getDegreeOfNodeAt(int);
+		int getWeightOfNodeAt(int);
 		int getLargestNodeDegree();
 		NeighborhoodSet &getNeighborhoodVertexOfVertexAt(int);
 		std::vector<int> &getNeighborhoodIdxVertexOfVertexAt(int);
+		std::vector<int> &getNeighborhoodIdxEdgeOfVertexAt(int);
 		NeighborhoodSet &getNeighborhoodEdgeOfVertexAt(int);
 		NeighborhoodSet getNeighborhoodEdgeOfEdgeAt(int);
 		NeighborhoodSet getNeighborhoodVertexOfEdgeAt(int);
 		Edge &getEdgeAt(int);
 		std::pair<int, bool> getEdgeIdFromPair(int i, int j);
-		void insertEdge(Edge);
+		bool insertEdge(Edge);
 		void insertNode(Node);
 		std::vector<Node> &getNodes();
 		std::vector<Edge> &getEdges();
-		void createEdgeIndexSortedById();
+		void setNodes(std::vector<Node> &);
+		void setEdges(std::vector<Edge> &);
 		void removeDuplicatedEdges();
 		void createNeighborhoodIndex();
-		void createNeighborhoodEdgeIndex();
 		void sortListsByLabel();
 		Graph removeEdgesRandom(double);
 		Graph swapNodeLabelsRandom(double, int);
+		void updateWithEdgesInGraph(boost::dynamic_bitset<>&, Graph*);
+
 		void print();
 		void printToFile(const std::string);
 		void printToFileArabesque(const std::string);
@@ -118,6 +128,7 @@ struct Graph {
 
 		void printStatistics();
 		bliss::Graph getBlissGraph();
+		size_t getNaiveCodeHashValue();
 		size_t getBlissCodeHashValue();
 
 		int getRandomNodeBiased();
@@ -127,6 +138,14 @@ struct Graph {
 		IntIntMap getEdgeLabelDistribution();
 		void modifyByAddingNodes(int, double); 
 		std::vector<int> getPathBetweenNodes(int, int, int);
+		std::map<int,int> markConnectedComponentsWithinSet(std::unordered_set<int> &);
+		void connectedComponentsDFSWithinSet(std::unordered_set<int> &, int, int); 
+		std::map<int,int> markConnectedComponentsWithoutSet(std::unordered_set<int> &);
+		void connectedComponentsDFSWithoutSet(std::unordered_set<int> &, int, int); 
+		std::map<int,int> markConnectedComponentsWithinSet(boost::dynamic_bitset<> &);
+		void connectedComponentsDFSWithinSet(boost::dynamic_bitset<> &, int, int); 
+		std::map<int,int> markConnectedComponentsWithoutSet(boost::dynamic_bitset<> &);
+		void connectedComponentsDFSWithoutSet(boost::dynamic_bitset<> &, int, int); 
 
 };
 
