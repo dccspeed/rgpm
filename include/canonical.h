@@ -8,6 +8,8 @@
 #include <bliss_C.h>
 #include <tbb/concurrent_hash_map.h>
 #include "utils.h"
+#include "BasicEmbedding.h"
+#include "graph.h"
 
 class Canonical {
 	public:
@@ -35,14 +37,17 @@ class Canonical {
 			}
 		};
 
-
+		static tbb::atomic<int> hits;
+		static tbb::atomic<int> misses;
 		static tbb::concurrent_hash_map<size_t, size_t> pattern_to_canonical; 
-		static tbb::concurrent_hash_map<size_t, PatternInfo*> naives; 
-		static tbb::concurrent_hash_map<size_t, PatternInfo*> canonicals; 
+		//static tbb::concurrent_hash_map<size_t, PatternInfo*> naives; 
+		//static tbb::concurrent_hash_map<size_t, PatternInfo*> canonicals; 
 
+		//static size_t getHashScratch(bliss::Graph &);
+		static size_t getHash(BasicEmbedding &);
+		static size_t getHash(Graph &);
 		static size_t getHash(bliss::Graph &);
-		static size_t getHashScratch(bliss::Graph &);
-		static unsigned int * getPermutation(bliss::Graph &);
+		//static unsigned int *getPermutation(bliss::Graph &);
 		
 		static void report_aut(void*, const unsigned int, const unsigned int*);
 
