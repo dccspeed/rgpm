@@ -20,6 +20,7 @@ protected:
 public :
     VertexInducedEmbedding();
     VertexInducedEmbedding(Graph *g);
+    VertexInducedEmbedding(Graph *g, std::vector<int>);
     ~VertexInducedEmbedding();
     void setFromEmbedding(VertexInducedEmbedding other);
     //void copy(VertexInducedEmbedding other);
@@ -44,6 +45,7 @@ public :
     std::vector<int> getValidElementsForExpansionSorted();
     std::vector<int> &getValidElementsForExpansionSorted(int);
     std::unordered_set<int> getValidElementsForExpansion();
+    std::unordered_set<int> getValidElementsForExpansionWith(std::unordered_set<int> &);
     NeighborhoodSet &getValidElementsForExpansion(int);
     std::unordered_set<int> getValidElementsForContraction();
     std::unordered_set<int> getValidElementsForContractionWithWord(int);

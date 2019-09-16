@@ -9,7 +9,7 @@
 //static variable
 //std::unordered_map<size_t, size_t> Graph::pattern_to_canonical = std::unordered_map<size_t, size_t> ();
 
-Graph::Graph(): id(0), label(0), numNodeLabels(0), numEdgeLabels(0), largestDegree(-1) {
+Graph::Graph(): id(0), label(0), numNodeLabels(0), numEdgeLabels(0), largestDegree(-1), numNodesIdx(0), numEdgesIdx(0) {
     nodes = std::vector<Node> ();
     edges = std::vector<Edge> ();
     //neighborhood = std::vector<NeighborhoodSet>();
@@ -44,15 +44,15 @@ void Graph::setType(int type){
     this->type = type;
 }
 
-int Graph::getNumberOfNodes() const {
-    return (int)nodes.size(); 
+uint Graph::getNumberOfNodes() const {
+    return nodes.size(); 
 }
 
-int Graph::getNumberOfEdges() const {
-    return (int)edges.size(); 
+uint Graph::getNumberOfEdges() const {
+    return edges.size(); 
 }
 
-int Graph::getNumberOfNodeLabels() const {
+uint Graph::getNumberOfNodeLabels() const {
     return numNodeLabels; 
 }
 
@@ -72,8 +72,16 @@ std::vector<Node> &Graph::getNodes(){
     return (this->nodes);
 }
 
+void Graph::setNodes(std::vector<Node> &nodes){
+    this->nodes=nodes;
+}
+
 std::vector<Edge> &Graph::getEdges(){
     return (this->edges);
+}
+
+void Graph::setEdges(std::vector<Edge> &edges){
+    this->edges = edges;
 }
 
 Node &Graph::getNodeAt(int i) {
@@ -91,6 +99,14 @@ std::pair<int,bool> Graph::getEdgeIdFromPair(int i, int j){
 	
 int Graph::getDegreeOfNodeAt(int i) {
 	return neighborhood[i].size();
+}
+
+int Graph::getWeightOfNodeAt(int i) {
+	double w = 0;
+	for (int e : neighborhoodEdge[i]) {
+		w+=edges[e].getWeight();
+	}
+	return w;
 }
 
 int Graph::getLargestNodeDegree() {
@@ -112,10 +128,57 @@ std::vector<int> &Graph::getNeighborhoodIdxVertexOfVertexAt(int id){
 	return neighborhoodIdx[id];
 }
 
-
 NeighborhoodSet &Graph::getNeighborhoodEdgeOfVertexAt(int id) {
 	return neighborhoodEdge[id];
 }
+
+std::vector<int> &Graph::getNeighborhoodIdxEdgeOfVertexAt(int id){
+	return neighborhoodIdxEdge[id];
+}
+
+NeighborhoodSet Graph::getKNeighborhoodVertexOfVertexAt(int id, int k){
+	NeighborhoodSet kneighborhood;
+	std::queue<std::pair<int,int>> reachQueue;
+
+	reachQueue.push(std::pair<int, int> (id,0));
+	while (!reachQueue.empty()) {
+	        std::pair<int,int> reachNode = reachQueue.front();
+		reachQueue.pop();
+
+		NeighborhoodSet &neigh = getNeighborhoodVertexOfVertexAt(reachNode.first);
+		for (int i : neigh) {
+			if (kneighborhood.find(id)==kneighborhood.end() && reachNode.second<k) {
+				reachQueue.push(std::pair<int, int> (i,reachNode.second+1));
+				kneighborhood.insert(i);
+			}
+		}
+	}
+	return kneighborhood;
+
+}
+
+NeighborhoodSet Graph::getKNeighborhoodVertexOfVertexAt(int id, int k, std::unordered_set<int> &l){
+        NeighborhoodSet kneighborhood;
+        std::queue<std::pair<int,int>> reachQueue;
+
+        reachQueue.push(std::pair<int, int> (id,0));
+        while (!reachQueue.empty()) {
+                std::pair<int,int> reachNode = reachQueue.front();
+                reachQueue.pop();
+
+                NeighborhoodSet &neigh = getNeighborhoodVertexOfVertexAt(reachNode.first);
+                for (int i : neigh) {
+			if (l.find(i)==l.end()) continue;
+                        if (kneighborhood.find(id)==kneighborhood.end() && reachNode.second<k) {
+                                reachQueue.push(std::pair<int, int> (i,reachNode.second+1));
+                                kneighborhood.insert(i);
+                        }
+                }
+        }
+        return kneighborhood;
+
+}
+
 
 /*NeighborhoodSet Graph::getNeighborhoodEdgeOfEdgeAt(int id) {
 	NeighborhoodSet neighs;
@@ -142,16 +205,20 @@ void Graph::insertNode(Node node){
     nodes.push_back(node);
 }
 
-void Graph::insertEdge(Edge e){
+bool Graph::insertEdge(Edge e){
+    //std::cout << "try to insert edge " << e << std::endl;
     std::pair<int, int> pedge(e.getFromNodeId(), e.getToNodeId()); 
 
     std::unordered_map<std::pair<int, int>, int, boost::hash<std::pair<int, int>>>::iterator ret;
     ret = nodes2edge.find(pedge);
     if (ret!=nodes2edge.end())
-	return;
+	return false;
    
+    //std::cout << "inserting edge " << e << std::endl;
+    
     nodes2edge.insert(std::make_pair(pedge, edges.size())) ;
     edges.push_back(e);
+    return true;
 }
 
 bool Graph::isNeighborEdge(int i, int j) {
@@ -192,46 +259,57 @@ bool Graph::isNeighborEdge(int i, int j) {
 }*/
 
 //TODO fix for directed edges
-void Graph::createNeighborhoodIndex(){
+void Graph::createNeighborhoodIndex() {
+   
+    if (numNodesIdx==nodes.size() && numEdgesIdx==edges.size()) return;
+
+    std::cout << "creating or updating graph idx" << std::endl;
     neighborhood.resize(nodes.size(), NeighborhoodSet());
     neighborhoodIdx.resize(nodes.size(), std::vector<int>());
+    neighborhoodEdge.resize(nodes.size(), NeighborhoodSet());
+    dirty_nodes.resize(nodes.size(), false);
 
     //for (int i = 0; i < (int) neighborhood.size(); i++)
 	//neighborhood[i].set_empty_key(-1);
 
-    for (int j = 0; j < (int) edges.size(); j++) 
-    {
+    //update only the remaing edges
+    for (uint j = numEdgesIdx; j < edges.size(); j++) {
 	int from = edges[j].getFromNodeId();
 	int to = edges[j].getToNodeId();
 	if (from < 0 || from >= (int) neighborhood.size()) {
 		std::cout << "invalid node from idx " << from << std::endl;
-		std::cout << "neighborhood size " << (int)neighborhood.size();
+		std::cout << "neighborhood size " << neighborhood.size();
 		exit(1);
 	}
 	if (to < 0 || to >= (int) neighborhood.size()) {
 		std::cout << "invalid node to idx " << to << std::endl;
-		std::cout << "neighborhood size " << (int)neighborhood.size() << std::endl;
+		std::cout << "neighborhood size " << neighborhood.size() << std::endl;
 		exit(1);
 	}
         neighborhood[to].insert(from);
         neighborhood[from].insert(to);
         neighborhoodIdx[to].push_back(from);
         neighborhoodIdx[from].push_back(to);
+        neighborhoodEdge[to].insert(j);
+        neighborhoodEdge[from].insert(j);
+	//std::cout << "new idx edge " << j << " " << edges[j] <<  std::endl;
+	
+	//set dirty
+	dirty_nodes.set(to, true);
+	dirty_nodes.set(from, true);
     }
-}
 
-//TODO fix for directed edges
-void Graph::createNeighborhoodEdgeIndex(){
-    neighborhoodEdge.resize(nodes.size(), NeighborhoodSet());
-    //for (int i = 0; i < (int) neighborhoodEdge.size(); i++)
-	//neighborhoodEdge[i].set_empty_key(-1);
-
-    for (int j = 0; j < (int)edges.size(); j++) 
-    {
-        neighborhoodEdge[edges[j].getToNodeId()].insert(j);
-        neighborhoodEdge[edges[j].getFromNodeId()].insert(j);
-        //neighborhood.push_back(neighSet);
+    // sort indexes
+    size_t i = dirty_nodes.find_first();
+    while (i!=boost::dynamic_bitset<>::npos) {
+	std::sort(neighborhoodIdx[i].begin(), neighborhoodIdx[i].end());
+    	dirty_nodes.set(i, false);
+	//std::cout << i << " " << std::endl;
+        i = dirty_nodes.find_next(i);
     }
+
+    numNodesIdx = nodes.size();
+    numEdgesIdx = edges.size();
 }
 
 /*
@@ -261,7 +339,7 @@ void Graph::createEdgeIndexSortedById(){
     }
 }*/
 
-void Graph::print(){
+void Graph::print() {
     std::cout << "Graph ID " << this->id << " Label " << label << std::endl;
     std::cout << "---Data---"<< std::endl;
     for (std::vector<Node>::iterator iter=nodes.begin(); iter!=nodes.end(); iter++)
@@ -288,7 +366,7 @@ void Graph::printToFile(const std::string output){
 void Graph::printToFileArabesque(const std::string output){
     std::ofstream ofs (output, std::ofstream::out);
    
-    for (std::vector<Node>::iterator iter=nodes.begin(); iter!=nodes.end(); iter++){
+    for (std::vector<Node>::iterator iter=nodes.begin(); iter!=nodes.end(); iter++) {
         ofs << iter->getId() << " " << iter->getLabel() << " ";
 	int id = iter->getId();
     	for (NeighborhoodSet::iterator it = neighborhood[id].begin(); it != neighborhood[id].end(); it++) {
@@ -299,14 +377,14 @@ void Graph::printToFileArabesque(const std::string output){
     ofs.close();
 }
 
-void Graph::printResume(){
+void Graph::printResume() {
     std::cout << "@Graph ID " << this->id << " Label " << label << std::endl;
     std::cout << "#nodes " << this->getNumberOfNodes() << " #edges " << this->getNumberOfEdges() << std::endl;
     std::cout << "#node's labels " << this->getNumberOfNodeLabels() << " #edge's labels " << this->getNumberOfEdgeLabels() << std::endl;
 }
 
 
-Graph Graph::swapNodeLabelsRandom(double p, int vl){
+Graph Graph::swapNodeLabelsRandom(double p, int vl) {
     Graph newGraph(*this);
 
     if (vl < 2) return newGraph;
@@ -321,13 +399,13 @@ Graph Graph::swapNodeLabelsRandom(double p, int vl){
 
     std::set<int> positions;
     while (numberOfLabelsRenamed != (int)positions.size()){
-        pos = (nodes.size()-0.001)*drand48();
+	pos = Randness::instance().get_a_random_number(0,nodes.size());
         positions.insert(pos);
     }
     for (std::set<int>::iterator it=positions.begin(); it !=positions.end(); it++){
         currentLabel = newLabel = nodes[*it].getLabel();
         while (newLabel==currentLabel){
-            newLabel = (vl-0.001)*drand48();
+            newLabel = Randness::instance().get_a_random_number(0,vl);
         }
         nodes[*it].setLabel(newLabel);
     }		
@@ -345,7 +423,7 @@ Graph Graph::removeEdgesRandom(double p){
     std::vector<Edge> edges = newGraph.getEdges();
     // deleting edges
     while (numberOfEdgesRemoved!=0){
-        int pos = (edges.size()-0.001)*drand48();
+	int pos = Randness::instance().get_a_random_number(0,edges.size());
         edges.erase(edges.begin()+pos);	
         numberOfEdgesRemoved--;
     }
@@ -353,7 +431,6 @@ Graph Graph::removeEdgesRandom(double p){
     
     //neighborhood.clear();
     newGraph.createNeighborhoodIndex();
-    newGraph.createNeighborhoodEdgeIndex();
     return newGraph;
 }
 
@@ -361,10 +438,10 @@ void Graph::modifyByAddingNodes(int n, double p) {
 	IntIntMap nlabel2qtd = getNodeLabelDistribution();
         
 	for (int i = 0; i < n; i++) {
-		int l = (nlabel2qtd.size()-0.001)*drand48();
+		int l = Randness::instance().get_a_random_number(0,nlabel2qtd.size());
 		//adding edges
 		for (int j = 0; j < (int) nodes.size(); j++) {
-			if (drand48() < p) {
+			if (Randness::instance().random_uni01() < p) {
 				insertEdge(Edge(0, j, nodes.size(), 0));
 			}
 		}
@@ -375,8 +452,8 @@ void Graph::modifyByAddingNodes(int n, double p) {
 std::vector<std::list<int>> Graph::getPossibleMatches(Graph &g) {
     std::vector<std::list<int>> domains(this->getNumberOfNodes());
 
-    for (int i=0; i < g.getNumberOfNodes(); i++) {
-        for (int j=0; j < this->getNumberOfNodes(); j++) {
+    for (uint i=0; i < g.getNumberOfNodes(); i++) {
+        for (uint j=0; j < this->getNumberOfNodes(); j++) {
             if (Graph::nodeMatches(g, i, *this, j)) {
                 domains[j].push_back(i);
             }
@@ -433,7 +510,7 @@ bool Graph::nodePartialMatch(Graph &g, Graph &q, std::vector<int> &match, int id
 
 bool Graph::subgraphMatching(Graph &q, Graph &g, std::vector<int> &match) {
 
-    if ((int)match.size() == q.getNumberOfNodes()) {
+    if (match.size() == q.getNumberOfNodes()) {
         return true;
     }	
 
@@ -452,7 +529,7 @@ bool Graph::subgraphMatching(Graph &q, Graph &g, std::vector<int> &match) {
     //Node neighborNode = g.getNodeAt(match[neighborNodeId]);
     //for (int i=neighborNode.idxEdgeBegin; i<=neighborNode.idxEdgeEnd; i++) {
 
-    for (int i=0; i<g.getNumberOfNodes(); i++) {
+    for (uint i=0; i<g.getNumberOfNodes(); i++) {
         Node &node = g.getNodeAt(i);
         if (Graph::nodePartialMatch(g, q, match, node.getId())) {
             match.push_back(node.getId());
@@ -498,9 +575,239 @@ std::vector<int> Graph::bfsOrder(int idx) {
 }
 
 
+// A recursive function that uses visited[] and parent to detect 
+// cycle in subgraph reachable from vertex v. 
+bool Graph::isCyclicUtil(int v, std::vector<bool> &visited, int parent, std::unordered_set<int> &l) 
+{ 
+    // Mark the current node as visited 
+    visited[v] = true; 
+  
+    // Recur for all the vertices adjacent to this vertex 
+    std::vector<int> neighs = getNeighborhoodIdxVertexOfVertexAt(v);
+    for (int i : neighs) {
+	if (l.find(i) == l.end()) continue;
+
+        // If an adjacent is not visited, then recur for that adjacent 
+        if (!visited[i]) 
+        { 
+           if (isCyclicUtil(i, visited, v, l)) 
+              return true; 
+        } 
+  
+        // If an adjacent is visited and not parent of current vertex, 
+        // then there is a cycle. 
+        else if (i != parent) 
+           return true; 
+    } 
+    return false; 
+} 
+  
+// Returns true if the graph contains a cycle, else false. 
+bool Graph::isCyclic(std::unordered_set<int> &l) 
+{ 
+    // Mark all the vertices as not visited and not part of recursion 
+    // stack 
+    std::vector<bool> visited(getNumberOfNodes(), false); 
+
+    for (int i : l) 
+        visited[i] = false; 
+  
+    // Call the recursive helper function to detect cycle in different 
+    // DFS trees 
+    for (int u : l) 
+        if (!visited[u]) // Don't recur for u if it is already visited 
+          if (isCyclicUtil(u, visited, -1, l)) 
+             return true; 
+  
+    return false; 
+} 
+
+std::vector<int> &Graph::getNodesDegrees() {
+	degrees.resize(getNumberOfNodes(), 0);
+
+	for (int i = 0; i < getNumberOfNodes(); i++) 
+		degrees[i] = getDegreeOfNodeAt(i);
+
+	return degrees;
+}
+
+std::vector<int> &Graph::getNodesCoreness() {
+	coreness.resize(getNumberOfNodes(), 0);
+	std::vector<std::unordered_set<int>> D(getLargestNodeDegree()+1, std::unordered_set<int> ());
+	std::vector<int> d(getNumberOfNodes(), 0);
+
+	for (int i = 0; i < getNumberOfNodes(); i++) {
+		//std::cout << "bulding structs for degrees using node: " << i << std::endl;
+		d[i] = getDegreeOfNodeAt(i);
+		D[getDegreeOfNodeAt(i)].insert(i);
+	}
+
+	int largestCore = 0;
+	for (int k = 0; k <= getLargestNodeDegree(); k++) {
+		//std::cout << "getting nodes with degree: " << k << std::endl;
+		while (!D[k].empty()) {
+			int i = *(D[k].begin());
+			//std::cout << "=checking node " << i << std::endl;
+			D[k].erase(i);
+			coreness[i] = k;
+			if (largestCore < k) largestCore = k;
+			std::vector<int> neighs = getNeighborhoodIdxVertexOfVertexAt(i);
+			for (int j : neighs) {
+				if (d[j] > k) {
+					D[d[j]].erase(j);
+					D[d[j]-1].insert(j);
+					d[j]--;
+				}
+			}
+		}
+	}
+
+	return coreness;
+}
+
+std::vector<int> &Graph::getNodesLayers() {
+	layer.resize(getNumberOfNodes(), 1);
+	coreness.resize(getNumberOfNodes(), 1);
+	std::vector<int> d(getNumberOfNodes(), 0);
+
+	for (int i = 0; i < getNumberOfNodes(); i++) {
+		//std::cout << "bulding structs for degrees using node: " << i << std::endl;
+		d[i] = getDegreeOfNodeAt(i);
+	}
+
+	int core = 1, lay = 1;
+	boost::dynamic_bitset<> covered(getNumberOfNodes(), false);
+	covered.set();
+	//std::cout << "init covered count " << covered.count() <<  " size " << covered.size() << std::endl;
+	while (!covered.none()){
+		//std::cout << "starting over!" << std::endl;
+		size_t i = covered.find_first();
+		while (i!=boost::dynamic_bitset<>::npos) {
+			//std::cout << "checking node " << i << std::endl;
+			if (d[i]<=core) {
+				//std::cout << "node " << i << " has core <= " << core << std::endl;
+				layer[i] = lay;
+				coreness[i] = core;
+				std::vector<int> &neigh = getNeighborhoodIdxVertexOfVertexAt(i);
+				for (uint j : neigh) {
+					if (covered.test(j)) d[j]--;
+				}
+				covered.set(i, false);
+			}	
+			i = covered.find_next(i);
+		}
+		lay++;
+		int mindegree = getNumberOfNodes();
+		i = covered.find_first();
+		while (i!=boost::dynamic_bitset<>::npos) {
+			if (mindegree>d[i]) mindegree = d[i];
+			i = covered.find_next(i);
+		}
+		if (mindegree >= core+1) core = mindegree;
+		//std::cout << "covered count " << covered.count() << std::endl;
+	}
+	
+	//for (int i = 0; i < getNumberOfNodes(); i++) {
+	//	std::cout << "node: " << i << " layer: " << layer[i] << std::endl;
+	//}
+	return layer;
+}
+
+// A recursive function to print DFS starting from v. 
+// It returns true if degree of v after processing is less 
+// than k else false 
+// It also updates degree of adjacent if degree of v 
+// is less than k.  And if degree of a processed adjacent 
+// becomes less than k, then it reduces of degree of v also, 
+bool Graph::kcoreDFSUtil(int v, std::vector<bool> &visited, 
+                    std::vector<int> &vDegree, int k) 
+{ 
+    // Mark the current node as visited and print it 
+    visited[v] = true; 
+  
+    // Recur for all the vertices adjacent to this vertex 
+    std::vector<int> neighs = getNeighborhoodIdxVertexOfVertexAt(v); 
+    for (int i : neighs) 
+    { 
+        // degree of v is less than k, then degree of adjacent 
+        // must be reduced 
+        if (vDegree[v] < k) 
+            vDegree[i]--; 
+  
+        // If adjacent is not processed, process it 
+        if (!visited[i]) 
+        { 
+            // If degree of adjacent after processing becomes 
+            // less than k, then reduce degree of v also. 
+            if (kcoreDFSUtil(i, visited, vDegree, k)) 
+                vDegree[v]--; 
+        } 
+    } 
+  
+    // Return true if degree of v is less than k 
+    return (vDegree[v] < k); 
+} 
+
+// Prints k cores of an undirected graph 
+std::vector<int> Graph::computeKCore(int k) 
+{ 
+    // INITIALIZATION 
+    // Mark all the vertices as not visited and not 
+    // processed. 
+    std::vector<bool> visited(getNumberOfNodes(), false); 
+    std::vector<bool> processed(getNumberOfNodes(), false); 
+  
+    int mindeg = std::numeric_limits<int>::max(); 
+    int startvertex = 0; 
+  
+    // Store degrees of all vertices 
+    std::vector<int> vDegree(getNumberOfNodes()); 
+    for (int i=0; i<getNumberOfNodes(); i++) 
+    { 
+        vDegree[i]  = getDegreeOfNodeAt(i); 
+  
+        if (vDegree[i] < mindeg) 
+        { 
+            mindeg = vDegree[i]; 
+            startvertex=i; 
+        } 
+    } 
+  
+    kcoreDFSUtil(startvertex, visited, vDegree, k); 
+  
+    // DFS traversal to update degrees of all 
+    // vertices. 
+    for (int i=0; i<getNumberOfNodes(); i++) 
+        if (visited[i] == false) 
+            kcoreDFSUtil(i, visited, vDegree, k); 
+  
+    // RETURN K CORES 
+    std::vector<int> kcores;
+    std::cout << "K-Cores : \n"; 
+    for (int v=0; v<getNumberOfNodes(); v++) 
+    { 
+        // Only considering those vertices which have degree 
+        // >= K after BFS 
+        if (vDegree[v] >= k) 
+        {	
+            kcores.push_back(v); 
+            //std::cout << "\n[" << v << "]"; 
+            // Traverse adjacency list of v and print only 
+            // those adjacent which have vDegree >= k after 
+            // BFS. 
+	    //std::vector<int> neighs = getNeighborhoodIdxVertexOfVertexAt(v);
+            //for (int i : neighs) 
+            //    if (vDegree[i] >= k) 
+            //        std::cout << " -> " << i; 
+        } 
+    } 
+ 
+    return kcores;
+} 
+
 bool Graph::isConnected() {
 	std::vector<int> order = bfsOrder(0);
-	for (int i = 0; i < getNumberOfNodes(); i++)
+	for (uint i = 0; i < getNumberOfNodes(); i++)
 		if (order[i] == -1) return false;
 
 	return true;
@@ -540,9 +847,29 @@ bliss::Graph Graph::getBlissGraph() {
 	return blissGraph;
 }
 
+size_t Graph::getNaiveCodeHashValue() {
+	size_t seed = 0;
+	for (Edge e : edges) {
+		boost::hash_combine(seed, e.getLabel() * 2654435761);
+		
+		//including node src
+		Node src = this->getNodeAt(e.getFromNodeId());
+		boost::hash_combine(seed, e.getFromNodeId() * 2654435761);
+		boost::hash_combine(seed, src.getLabel() * 2654435761);
+		
+		//including node dest
+		Node dest = this->getNodeAt(e.getToNodeId());
+		boost::hash_combine(seed, e.getToNodeId() * 2654435761);
+		boost::hash_combine(seed, dest.getLabel() * 2654435761);
+	}
+
+	return seed;
+}
+
 size_t Graph::getBlissCodeHashValue() {
-	bliss::Graph bg = this->getBlissGraph();
-	return Canonical::getHash(bg);
+	//bliss::Graph bg = this->getBlissGraph();
+	//return Canonical::getHash(bg);
+	return Canonical::getHash(*this);
 }
 
 /*size_t Graph::getBlissCodeHashValue() {
@@ -642,7 +969,54 @@ IntIntMap Graph::getEdgeLabelDistribution() {
 }
 
 void Graph::randomizeNodes() {
-	std::random_shuffle( nodes.begin(), nodes.end() );
+	std::random_shuffle(nodes.begin(), nodes.end());
+}
+
+void Graph::colorNodes(int c) {
+	colors.resize(getNumberOfNodes());
+	for (int i = 0; i < getNumberOfNodes(); i++)
+		colors[i] = Randness::instance().get_a_random_number(0,c);
+}
+
+//assumes that the node vector has them all, thus just update edges and indexes
+void Graph::updateWithEdgesInGraph(boost::dynamic_bitset<> &bs, Graph *g) {
+	//for (int i : ids) {
+	size_t i = bs.find_first();
+	while (i != boost::dynamic_bitset<>::npos) {
+		if (i >= nodes.size()) {
+			std::cout << "error: updateWithNodesInGraph. id is out of range!" << std::endl;
+			exit(1);
+		}
+		NeighborhoodSet neighEdges = g->getNeighborhoodEdgeOfVertexAt(i); 
+		for (NeighborhoodSet::iterator it = neighEdges.begin(); it != neighEdges.end(); it++) {
+			Edge e = g->getEdgeAt(*it);
+    			int to = e.getToNodeId(); 
+			int from = e.getFromNodeId();
+			//update if the nodes are set as true in the bitset
+			if (!bs.test(to) || !bs.test(from) || !insertEdge(e)) continue;
+			//check if there is an error
+			if (from < 0 || from >= (int) neighborhood.size()) {
+	               		std::cout << "invalid update node from idx " << from << std::endl;
+	        	        std::cout << "neighborhood size " << (int)neighborhood.size();
+			        exit(1);
+			}
+		        if (to < 0 || to >= (int) neighborhood.size()) {
+                		std::cout << "invalid update node to idx " << to << std::endl;
+		                std::cout << "neighborhood size " << (int)neighborhood.size() << std::endl;
+                		exit(1);
+		        }	
+			//update node indexes
+			neighborhood[to].insert(from);
+		        neighborhood[from].insert(to);
+		        neighborhoodIdx[to].push_back(from);
+		        neighborhoodIdx[from].push_back(to);
+
+			//update edge index
+        		neighborhoodEdge[to].insert(edges.size()-1);
+		        neighborhoodEdge[from].insert(edges.size()-1);
+		}
+		i = bs.find_next(i);
+	}
 }
 
 std::vector<int> Graph::getPathBetweenNodes(int id1, int id2, int k) {
@@ -651,8 +1025,7 @@ std::vector<int> Graph::getPathBetweenNodes(int id1, int id2, int k) {
 	std::stack<std::pair<int, int>> q;
 	reach.insert(id1);
 	q.push(std::pair<int, int> (id1,0));
-	std::cout << "add "<< id1 << std::endl;
-
+	//std::cout << "add "<< id1 << std::endl;
 
 	while (!q.empty()) {
 		std::pair<int,int> top  = q.top();
@@ -687,9 +1060,7 @@ std::vector<int> Graph::getPathBetweenNodes(int id1, int id2, int k) {
 				}
 			}
 		}
-
 	}
-
 	std::vector<int> path;
 	//path was found
 	if (!q.empty()) {
@@ -698,6 +1069,265 @@ std::vector<int> Graph::getPathBetweenNodes(int id1, int id2, int k) {
 			q.pop();
 		}
 	}
-
 	return path; 
+}
+
+std::vector<int> Graph::getConnectedNodes(std::unordered_set<int> &nodes, int k) {
+	std::cout << "looking for connected nodes of size: " << k << std::endl;
+	std::vector<int> cnodes;
+	std::unordered_set<int> reach;
+	std::stack<int> q;
+
+	if (!nodes.empty()) {
+		reach.insert(*nodes.begin());
+		q.push(*nodes.begin());
+	}
+
+	while (reach.size()!=k && !q.empty()) {
+		int top  = q.top();
+		q.pop();
+		std::vector<int> &neighs = getNeighborhoodIdxVertexOfVertexAt(top);
+		std::cout << "node " << top << " number of neighbors " << neighs.size() << " current size "<< reach.size() << std::endl;
+
+		//neighbors have finished
+		//add new neighbor if it is in nodes set
+		for (int i : neighs){
+			if (reach.find(i) == reach.end() && nodes.find(i) != nodes.end()) {
+				std::cout << "add " << i << std::endl;
+				reach.insert(i);
+				q.push(i);
+				if (reach.size()==k) break;
+			}
+		}
+	}
+
+	for (int i : reach) cnodes.push_back(i);
+
+	if (cnodes.size()!=k)
+		std::cout << "connected nodes with size " << k << " not found!" << std::endl;
+
+	return cnodes; 
+}
+
+/*
+   std::map<int, int> Graph::markConnectedComponentsWithinSet(boost::dynamic_bitset<> &bs) { 
+   if (comp.size() != nodes.size()) comp.resize(nodes.size());
+
+//representative set
+std::map<int, int> rs; 
+
+//set number of components to zero
+int numComps=0;
+
+//mark all the vertices as not visited 
+size_t i = bs.find_first();
+while (i != boost::dynamic_bitset<>::npos) {
+comp[i] = 0; 
+i = bs.find_next(i);
+}
+
+i = bs.find_first();
+while (i != boost::dynamic_bitset<>::npos) {
+//std::cout << "node " << i << " " << comp[i] << std::endl; 
+if (comp[i] == 0) {
+numComps++;
+connectedComponentsDFSWithinSet(bs, i, numComps); 
+}
+if (rs.find(comp[i])==rs.end() && comp[i]!=0) {
+rs[comp[i]] = i;
+}
+//std::cout << "node " << i << " " << comp[i] << std::endl;
+i = bs.find_next(i);
+} 
+return rs;
+} 
+
+void Graph::connectedComponentsDFSWithinSet(boost::dynamic_bitset<> &bs, int i, int numComps) { 
+//mark the current node as visited and print it 
+comp[i]=numComps; 
+//std::cout << ">>>node " << i << std::endl; 
+
+// Recur for all the vertices 
+// adjacent to this vertex 
+for(int j : neighborhood[i]) { 
+if(bs.test(j) && comp[j] == 0) 
+connectedComponentsDFSWithinSet(bs, j, numComps); 
+}
+} 
+
+//find the connected components ignoring nodes set in bs and returns a representative node of each component
+std::map<int, int> Graph::markConnectedComponentsWithoutSet(boost::dynamic_bitset<> &bs) { 
+if (comp.size() != nodes.size()) comp.resize(nodes.size());
+
+//representative set
+std::map<int, int> rs; 
+
+//set number of components to zero
+int numComps=0;
+
+//mark all the vertices as not visited 
+for (uint i = 0; i < nodes.size(); i++) 
+comp[i] = 0; 
+
+for (uint i=0; i < nodes.size(); i++) { 
+//std::cout << "node " << i << " " << comp[i] << std::endl; 
+if (!bs.test(i) && comp[i] == 0) {
+numComps++;
+connectedComponentsDFSWithoutSet(bs, i, numComps); 
+}
+if (rs.find(comp[i])==rs.end() && comp[i]!=0) {
+rs[comp[i]] = i;
+}
+//std::cout << "node " << i << " " << comp[i] << std::endl;
+} 
+return rs;
+} 
+
+void Graph::connectedComponentsDFSWithoutSet(boost::dynamic_bitset<> &bs, int i, int numComps) { 
+	//mark the current node as visited and print it 
+	comp[i]=numComps; 
+	//std::cout << ">>>node " << i << std::endl; 
+
+	// Recur for all the vertices 
+	// adjacent to this vertex 
+	for(int j : neighborhood[i]) { 
+		if(!bs.test(j) && comp[j] == 0) 
+			connectedComponentsDFSWithoutSet(bs, j, numComps); 
+	}
+}*/ 
+
+std::map<int, std::vector<int> > Graph::markConnectedComponentsWithinSet(std::unordered_set<int> &os) { 
+	if (comp.size() != nodes.size()) comp.resize(nodes.size());
+
+	//representative set
+	std::map<int, std::vector<int> > rs; 
+
+	//set number of components to zero
+	int numComps=0;
+
+	//mark all the vertices as not visited 
+	for (int i : os) {
+		comp[i] = -1; 
+	}
+
+	for (int i : os) {
+		//std::cout << "node " << i << " " << comp[i] << std::endl; 
+		if (comp[i]==-1) {
+			connectedComponentsDFSWithinSet(os, i, numComps); 
+			numComps++;
+		}
+
+		std::map<int, std::vector<int> >::iterator map_it = rs.find(comp[i]);
+		if (map_it==rs.end()) {
+			//rs[comp[i]] = i;
+			rs.insert(std::make_pair(comp[i], std::vector<int>()));
+			map_it = rs.find(comp[i]);
+		}
+		//insert this node in its component
+		map_it->second.push_back(i);
+		//std::cout << "node " << i << " " << comp[i] << std::endl;
+	} 
+	return rs;
+} 
+
+void Graph::connectedComponentsDFSWithinSet(std::unordered_set<int> &os, int i, int numComps) { 
+	//mark the current node as visited and print it 
+	comp[i]=numComps; 
+	//std::cout << ">>>node " << i << std::endl; 
+
+	// Recur for all the vertices 
+	// adjacent to this vertex 
+	for(int j : neighborhood[i]) { 
+		if(os.find(j)!=os.end() && comp[j] == -1) 
+			connectedComponentsDFSWithinSet(os, j, numComps); 
+	}
+}
+
+/*
+//find the connected components ignoring nodes set in bs and returns a representative node of each component
+std::map<int, int> Graph::markConnectedComponentsWithoutSet(std::unordered_set<int> &os) { 
+if (comp.size() != nodes.size()) comp.resize(nodes.size());
+
+//representative set
+std::map<int, int> rs; 
+
+//set number of components to zero
+int numComps=0;
+
+//mark all the vertices as not visited 
+for (uint i = 0; i < nodes.size(); i++) 
+comp[i] = 0; 
+
+for (uint i=0; i < nodes.size(); i++) { 
+//std::cout << "node " << i << " " << comp[i] << std::endl; 
+if (os.find(i)==os.end() && comp[i] == 0) {
+numComps++;
+connectedComponentsDFSWithoutSet(os, i, numComps); 
+}
+if (rs.find(comp[i])==rs.end() && comp[i]!=0) {
+rs[comp[i]] = i;
+}
+//std::cout << "node " << i << " " << comp[i] << std::endl;
+} 
+return rs;
+} 
+
+void Graph::connectedComponentsDFSWithoutSet(std::unordered_set<int> &os, int i, int numComps) { 
+//mark the current node as visited and print it 
+comp[i]=numComps; 
+//std::cout << ">>>node " << i << std::endl; 
+
+// Recur for all the vertices 
+// adjacent to this vertex 
+for(int j : neighborhood[i]) { 
+if(os.find(j)==os.end() && comp[j] == 0) 
+connectedComponentsDFSWithoutSet(os, j, numComps); 
+}
+} */
+
+
+std::map<int, std::vector<int> > Graph::markConnectedComponents() { 
+	if (comp.size() != nodes.size()) comp.resize(nodes.size());
+	//representative set
+	std::map<int, std::vector<int> > rs; 
+
+	//set number of components to zero
+	int numComps=0;
+
+	//mark all the vertices as not visited 
+	for (int i = 0; i < getNumberOfNodes(); i++) {
+		comp[i] = -1; 
+	}
+
+	for (int i = 0; i < getNumberOfNodes(); i++) {
+		//std::cout << "node " << i << " " << comp[i] << std::endl; 
+		if (comp[i]==-1) {
+			connectedComponentsDFS(i, numComps); 
+			numComps++;
+		}
+
+		std::map<int, std::vector<int> >::iterator map_it = rs.find(comp[i]);
+		if (map_it==rs.end()) {
+			//rs[comp[i]] = i;
+			rs.insert(std::make_pair(comp[i], std::vector<int>()));
+			map_it = rs.find(comp[i]);
+		}
+		//insert this node in its component
+		map_it->second.push_back(i);
+		//std::cout << "node " << i << " " << comp[i] << std::endl;
+	} 
+	return rs;
+} 
+
+void Graph::connectedComponentsDFS(int i, int numComps) { 
+	//mark the current node as visited and print it 
+	comp[i]=numComps; 
+	//std::cout << ">>>node " << i << std::endl; 
+
+	// Recur for all the vertices 
+	// adjacent to this vertex 
+	for(int j : neighborhood[i]) { 
+		if(comp[j] == -1) 
+			connectedComponentsDFS(j, numComps); 
+	}
 }

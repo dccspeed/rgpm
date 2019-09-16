@@ -28,7 +28,7 @@ std::vector<int> EmbeddingSpaceTraditional<T>::getGroupKeys(T &e1, T &e2) {
 
 template <class T>
 bool EmbeddingSpaceTraditional<T>::isSameGroup(T &e1, T &e2) {
-	return false;
+	return true;
 }
 
 template <class T>

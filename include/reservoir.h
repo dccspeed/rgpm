@@ -24,14 +24,14 @@ class reservoir {
 	TopQueue<std::pair<int,double>, CompareIntDoublePairInc> weightsQ;
 	
 	reservoir(uint c): cpty(c), filled(0), nreplaces(0), ninserts(0), total(0), weight(0) { 
-		rvr.resize(cpty);
-		weights.resize(cpty);
+		//rvr.resize(cpty);
+		//weights.resize(cpty);
 		weightsQ.setMaxSize(cpty);
 	};
 
 	reservoir(): cpty(DEFAULT_CAPACITY), filled(0), nreplaces(0), ninserts(0), total(0), weight(0) { 
-		rvr.resize(cpty);
-		weights.resize(cpty);
+		//rvr.resize(cpty);
+		//weights.resize(cpty);
 		weightsQ.setMaxSize(cpty);
 	};
 
@@ -93,14 +93,14 @@ class reservoir {
 	
 	inline bool insert(O obj, double w) {
                 total++;
-                weight += w;
+                weight+=w;
 		double new_w = std::pow(Randness::instance().random_uni01(), 1/w);               
 	
                  if (ninserts < cpty) {
 			std::pair<int, double> w_item (filled, new_w);
 			weightsQ.insert(w_item);
-                        rvr[filled] = obj;
-                        weights[filled] = w;
+                        rvr.push_back(obj);
+                        weights.push_back(w);
                         ninserts++;
                         filled++;
                         return true;
@@ -130,10 +130,18 @@ class reservoir {
 		ninserts = 0;
 		total = 0;
 		weight = 0;
+		weightsQ.clear();
+		rvr.clear();
+		weights.clear();
 	}
 
 	O random() const {
+		if (filled <=0) {
+			std::cout << "error: impossible to get a random element in reservoir" << std::endl;
+			exit(1);
+		}
 		uint j = Randness::instance().get_a_random_number(0, filled);
+		//std::cout << "getting random element in reservoir position: " << j << std::endl;
 		return rvr[j];
 	}
 
@@ -252,6 +260,16 @@ class reservoir {
 			exit(1);
 		}
 		
+		if (this->filled==0) {
+			//reservoir<O> r = *this;
+			return r2;
+		}
+		else if (r2.filled==0) {
+			//reservoir<O> r = r2;
+			return *this;
+		}
+
+
 		reservoir<O> r(this->cpty);
 		
 		uint _filled = this->filled + r2.filled;
@@ -261,17 +279,17 @@ class reservoir {
 		double _weight = this->weight + r2.weight;
 
 		// generate new random numbers remake heap	
-		std::vector<std::pair<int,double>> heap = weightsQ.getVector();
+		const std::vector<std::pair<int,double>> heap = this->weightsQ.getVector();
 		for (std::pair<int,double> w_item : heap) {	
-			double new_w = std::pow(Randness::instance().random_uni01(), 1/weights[w_item.first]);               
-			r.insert(rvr[w_item.first], new_w);
+			double new_w = std::pow(Randness::instance().random_uni01(), 1/this->weights[w_item.first]);               
+			r.insert(this->rvr[w_item.first], new_w);
 		}
 
 		//insert the items in the second reservoir
-		std::vector<std::pair<int,double>> heap2 = r2.weightsQ.getVectorConst();
-		for (std::pair<int,double> w_item : heap) {	
+		const std::vector<std::pair<int,double>> heap2 = r2.weightsQ.getVectorConst();
+		for (std::pair<int,double> w_item : heap2) {	
 			double new_w = std::pow(Randness::instance().random_uni01(), 1/r2.weights[w_item.first]);               
-			r.insert(r.rvr[w_item.first], new_w);
+			r.insert(r2.rvr[w_item.first], new_w);
 		}
 		
 		r.filled = std::min(cpty, _filled);
@@ -288,26 +306,27 @@ class reservoir {
 			std::cout << "error: can not merge the reservoirs!" << std::endl;
 			exit(1);
 		}
-		
+	
+		if (r2.filled==0) return *this;
+ 	
 		uint _filled = this->filled + r2.filled;
 		uint _ninserts = this->ninserts + r2.ninserts;
 		uint _nreplaces = this->nreplaces + r2.nreplaces;
 		uint _total = this->total + r2.total;
 		double _weight = this->weight + r2.weight;
 
-
 		// generate new random numbers remake heap	
 		std::vector<std::pair<int,double>> &heap = weightsQ.getVector();
 		for (std::pair<int,double> w_item : heap) {	
-			w_item.second = std::pow(Randness::instance().random_uni01(), 1/weights[w_item.first]);               
+			w_item.second = std::pow(Randness::instance().random_uni01(), 1/this->weights[w_item.first]);               
 		}
-		weightsQ.remakeHeap();		
+		this->weightsQ.remakeHeap();		
 
 		//insert the items in the second reservoir
 		std::vector<std::pair<int,double>> heap2 = r2.weightsQ.getVectorConst();
 		for (std::pair<int,double> w_item : heap2) {	
 			double new_w = std::pow(Randness::instance().random_uni01(), 1/r2.weights[w_item.first]);               
-			insert(r2.rvr[w_item.first], new_w);
+			this->insert(r2.rvr[w_item.first], new_w);
 		}
 	
 		this->filled = std::min(cpty, _filled);

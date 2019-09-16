@@ -41,7 +41,7 @@
 #define EDGE_C_TYPE 0
 #define LABEL_C_TYPE 1
 
-#define CACHE 1
+//#define CACHE 1
 //#define FLUSH_AGGREGATOR
 
 

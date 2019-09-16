@@ -13,7 +13,9 @@
 #include "graphSetReader.h"
 #include "graph.h"
 #include "utils.h"
-#include "EmbeddingSpaceTraditional.h"
+#include "EmbeddingSpaceQueryingPar.h"
+//#include "EmbeddingSpacePercolationPar.h"
+//#include "EmbeddingSpacePercolation.h"
 
 int numthreads=1;
 
@@ -28,9 +30,9 @@ namespace
 int main(int argc, char **argv) {
 
 	//parameters
-	std::string input, output, config;
-	int psize = -1;
+	std::string input, output, config, query;
 	int supernode = 1;
+	int thread = 1;
         boost::log::trivial::severity_level logSeverity = boost::log::trivial::info;
 	try 
 	{ 
@@ -42,9 +44,11 @@ int main(int argc, char **argv) {
 			("help", "Print help messages") 
 			("input,i", po::value<std::string>()->required(), "Input file name.") 
 			("output,o", po::value<std::string>()->required(), "Output file name.") 
-			("psize,p", po::value<int>()->required(), "Pattern size.") 
+			("query,q", po::value<std::string>()->required(), "Query file name.") 
+			("supernode,s", po::value<int>(), "Super Node Size") 
 			("loglevel,l", po::value<boost::log::trivial::severity_level>(), "Log level to output")
-			("config,c", po::value<std::string>(), "Configuration file");
+			("config,c", po::value<std::string>(), "Configuration file") 
+			("thread,t", po::value<int>(), "Number of threads");
 
 		po::variables_map vm; 
 		try 
@@ -65,8 +69,8 @@ int main(int argc, char **argv) {
 			if ( vm.count("output")) {
 				output = vm["output"].as<std::string>();
 			}
-			if ( vm.count("psize")) {
-				psize = vm["psize"].as<int>();
+			if ( vm.count("query")) {
+				query = vm["query"].as<std::string>();
 			}
 			if ( vm.count("supernode")) {
 				supernode = vm["supernode"].as<int>();
@@ -77,11 +81,18 @@ int main(int argc, char **argv) {
 			if ( vm.count("config")) {
 				config = vm["config"].as<std::string>();
 			}
+			if ( vm.count("thread")) {
+				thread = vm["thread"].as<int>();
+			}
 
 			po::notify(vm); // throws on error, so do after help in case 
 
-			if (psize<=0) {
-				po::error e("Pattern size value greatter than 0!");
+			if (supernode <= 0) {
+				po::error e("Supernode size must be greater than zero!");
+				throw e;
+			}
+			if (thread <= 0) {
+				po::error e("Number of threads be greater than zero!");
 				throw e;
 			}
 
@@ -116,8 +127,17 @@ int main(int argc, char **argv) {
 	/* initialize random seed: */
 	srand (time(NULL));
 
-	GraphSetReader gphSetReader;
+	GraphSetReader gphSetReader, querySetReader;
 	gphSetReader.openData(input);
+
+
+	querySetReader.openData(query);
+	std::pair<Graph, bool> q = querySetReader.readGraph();
+	/*if (!q.second) {
+		std::cout << "query file with problem." << std::endl;
+		
+		return 0;
+	}*/
 
 	uint graphId = 0;
 	while(true) {
@@ -125,15 +145,21 @@ int main(int argc, char **argv) {
 		std::pair<Graph, bool> g = gphSetReader.readTransactionData();
 		bool ok = g.second;
 
-		//std::cout << "creatting neighborhood vertex index...\n";
+		std::cout << "creatting neighborhood index...\n";
 		g.first.createNeighborhoodIndex();
 		g.first.setId(graphId);
 		g.first.printResume();
-		
-		EmbeddingSpaceTraditional<VertexInducedEmbedding> es(psize, supernode, &g.first, config);
-    		//es.setAggOutput(output);
-		es.run_rw();
-		
+
+		if (thread > 1) {
+			//EmbeddingSpacePercolationPar<VertexInducedEmbedding> es(q.first.getNumberOfNodes(), supernode, &g.first, config, thread);
+			EmbeddingSpaceQueryingPar<VertexInducedEmbedding> es(q.first.getNumberOfNodes(), supernode, &g.first, config, thread);
+			es.loadQuery(&q.first);	
+			es.run_rw();	
+		}
+		//else {
+		//	EmbeddingSpacePercolation<VertexInducedEmbedding> es(q.first.getNumberOfNodes(), supernode, &g.first, config);
+		//	es.run_rw();	
+		//}
 		if(!ok) break;
 	}
 	gphSetReader.closeData();

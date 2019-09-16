@@ -11,6 +11,13 @@ void EdgeInducedEmbedding::reset() {
 	edgesSet.clear();
 }
 
+EdgeInducedEmbedding::EdgeInducedEmbedding(Graph *g, std::vector<int> ws):BasicEmbedding(g, ws) {
+	edges.reserve(1000); 
+	verticesMap.reserve(1000);
+	edgesSet.reserve(1000);
+	for (int w : ws) addWord(w);
+};
+
 EdgeInducedEmbedding::EdgeInducedEmbedding(Graph *g):BasicEmbedding(g) {
 	edges.reserve(1000); 
 	verticesMap.reserve(1000);
@@ -26,12 +33,12 @@ EdgeInducedEmbedding::EdgeInducedEmbedding():BasicEmbedding() {
 void EdgeInducedEmbedding::setFromEmbedding(EdgeInducedEmbedding other) {
 }
 
-void EdgeInducedEmbedding::copy(EdgeInducedEmbedding other) {
+/*void EdgeInducedEmbedding::copy(EdgeInducedEmbedding other) {
 	graph = other.graph;
 	edges = other.getEdges();
 	edgesSet = other.getEdgesSet();
 	verticesMap = other.getVerticesMap();
-}
+}*/
 
 std::unordered_set<int> &EdgeInducedEmbedding::getEdgesSet()  {
 	return edgesSet;
@@ -57,6 +64,11 @@ NeighborhoodSet EdgeInducedEmbedding::getWordNeighbors(int id) {
 	NeighborhoodSet neighs;
 	std::cout << "Function is not implemented!" << std::endl;
 	exit(1);
+}
+
+//TODO
+std::vector<int> &EdgeInducedEmbedding::getValidElementsForExpansionSorted(int vertexId) {
+	return graph->getNeighborhoodIdxEdgeOfVertexAt(vertexId);
 }
 
 NeighborhoodSet &EdgeInducedEmbedding::getValidElementsForExpansion(int vertexId) {
@@ -106,6 +118,11 @@ expansions.push_back(it->first);
 return expansions;
 }*/
 
+//TODO
+std::vector<int> EdgeInducedEmbedding::getValidElementsForExpansionSorted() {
+	return std::vector<int>();
+}
+
 std::unordered_set<int> EdgeInducedEmbedding::getValidElementsForExpansion() {
 	std::unordered_set<int> expansions;
 	if (edges.size() == 0) {
@@ -142,6 +159,42 @@ std::unordered_set<int> EdgeInducedEmbedding::getValidElementsForExpansion() {
 	return expansions;
 }
 
+std::unordered_set<int> EdgeInducedEmbedding::getValidElementsForExpansionWith(std::unordered_set<int> &l) {
+	std::unordered_set<int> expansions;
+	if (edges.size() == 0) {
+		//expansions.insert(-1);	
+		//int vec[] = {-1};
+		//return std::vector<int> (vec, vec + sizeof(vec) / sizeof(int)) ;
+		expansions.insert(-1); 
+	}
+	for (std::unordered_map<int, int>::iterator it = verticesMap.begin(); it!=verticesMap.end(); it++) {
+		NeighborhoodSet possibleExp = getValidElementsForExpansion(it->first);
+		for (int j : possibleExp) 
+			if (l.find(j) != l.end()) expansions.insert(j);
+	}
+	//remove edges already inserted
+	for (int i = 0; i < (int)edges.size(); i++) {
+		expansions.erase(edges[i]);
+	}
+
+	/*std::vector<int> bla (expansions.begin(), expansions.end());
+	  std::vector<int> ble = getValidElementsForExpansion();
+
+	  std::sort(bla.begin(), bla.end());
+	  std::sort(ble.begin(), ble.end());
+	  for (int i = 0; i < bla.size(); i++) {
+	  if (bla[i]!=ble[i]) {
+	  std::cout << "BLA != BLE\n";
+	  exit(1);
+	  }
+	  }
+
+	  std::cout << "before : " << bla.size() << " after " << ble.size() << std::endl;
+	  return bla; 
+	 */
+	//return std::vector<int> (expansions.begin(), expansions.end());
+	return expansions;
+}
 
 /**
  * Add word and update the number of vertices in this embedding.

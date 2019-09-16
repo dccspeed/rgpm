@@ -308,7 +308,7 @@ virtual std::pair<Mod,bool> getNextRandomModificationByRejection(T &e, ModSet &m
 		totalExt+=g->getDegreeOfNodeAt(words[i]);
 	}	
 
-	std::cout << "GETTING RANDOM NEIGHBOR OF EMBEDDING: " << e << std::endl;
+	//std::cout << "GETTING RANDOM NEIGHBOR OF EMBEDDING: " << std::endl;
 	//e.print();
 	int att = 0;
 	do {
@@ -344,7 +344,7 @@ virtual std::pair<Mod,bool> getNextRandomModificationByRejection(T &e, ModSet &m
 		std::vector<int>::iterator it = Randness::instance().random_element(expansions.begin(), expansions.end()); 
 		mod.first.addId = *it; 
 
-		std::cout << "rmId: " << mod.first.rmId << " addId: " << mod.first.addId << " neighId: " << neighId << std::endl;
+		//std::cout << "rmId: " << mod.first.rmId << " addId: " << mod.first.addId << " neighId: " << neighId << std::endl;
 		if (!e.existWord(mod.first.addId) && mods.find(mod.first)==mods.end()) {
 			e.replaceWord(mod.first.rmId, mod.first.addId );
 			//fix bias since the word can be connected to more than one vertex.

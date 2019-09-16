@@ -28,6 +28,7 @@ class GraphSetReader : public DataReader {
 		std::vector<Graph> read(const std::string &);
 		std::pair<Graph, bool> readGraph(); //read just one graph from the data
 		std::pair<Graph, bool> readTransactionData();
+		std::pair<Graph, bool> readGraphEdgeList();
 		StrIntMap &getLabelNodeMap() {
 			return label2idNode;
 		};

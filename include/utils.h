@@ -22,7 +22,7 @@ typedef long unsigned int LUint;
 typedef unsigned int COUNT;
 typedef unsigned int LABEL;
 const int MAXUINT = UINT_MAX;
-const int REDUCTION_FACTOR = 1000;
+const double REDUCTION_FACTOR = 1.;
 
 typedef std::unordered_map<std::string, int> StrIntMap;
 typedef std::unordered_map<int,std::string> IntStrMap;

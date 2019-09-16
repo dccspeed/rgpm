@@ -61,6 +61,7 @@ public :
 
      BasicEmbedding();
      BasicEmbedding(Graph *g);
+     BasicEmbedding(Graph *g, std::vector<int>);
      virtual ~BasicEmbedding();
      
      void reset();
@@ -70,6 +71,7 @@ public :
      virtual std::vector<int> &getValidElementsForExpansionSorted(int) = 0;
      virtual std::unordered_set<int> getValidElementsForExpansion() = 0;
      virtual NeighborhoodSet &getValidElementsForExpansion(int) = 0;
+     virtual std::unordered_set<int> getValidElementsForExpansionWith(std::unordered_set<int>&) = 0;
      virtual std::unordered_set<int> getValidElementsForContraction() = 0;
      virtual std::unordered_set<int> getValidElementsForContractionWithWord(int) = 0;
      virtual std::vector<int> &getVertices() = 0;
@@ -99,6 +101,7 @@ public :
      bool hasHighDegreeNode(double);
      virtual bool hasEdge(int) = 0;
      bool hasEdgeLabel(int);
+     std::vector<int> getEdgesWithLabel(int);
      std::string toString();
      size_t getNaiveCodeHashValue();
      size_t getBlissCodeHashValue();

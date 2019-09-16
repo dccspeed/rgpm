@@ -7,7 +7,7 @@
 #include <omp.h>
 
 template <class T, class A>
-EmbeddingSpace<T,A>::EmbeddingSpace(int s, Graph *g):currEmbedding(g), emb_neighbor_cacheg(MAX_CACHE_SIZE), INITIAL_EMBEDDING(g) {  
+EmbeddingSpace<T,A>::EmbeddingSpace(int s, Graph *g): currEmbedding(g), emb_neighbor_cacheg(MAX_CACHE_SIZE), INITIAL_EMBEDDING(g) {  
 	srand (time(NULL));
 	size=s;
 	this->g = g;
@@ -94,7 +94,7 @@ bool EmbeddingSpace<T,A>::getValidEmbeddingBiased(T &e) {
 	//get init node
 	srand(time(NULL));
 	int n = e.getRandomWordBiased(); 
-	std::cout << "init rw : first node " << n << std::endl;
+	std::cout << "init rw : first node " << n << " degree: " << g->getDegreeOfNodeAt(n) <<  std::endl;
 	e.addWord(n);
 
 	std::unordered_set<int> expansions = e.getValidElementsForExpansion();
@@ -111,7 +111,7 @@ bool EmbeddingSpace<T,A>::getValidEmbeddingBiased(T &e) {
 		for (int k = 0; k < n; k++)
 			it++;
 
-		std::cout << "init rw : new word " << *it << std::endl;
+		std::cout << "init rw : new word " << *it << " degree: " << g->getDegreeOfNodeAt(*it) << std::endl;
 		e.addWord(*it);
 		expansions = e.getValidElementsForExpansion();
 		if (expansions.empty()) {
@@ -129,7 +129,7 @@ bool EmbeddingSpace<T,A>::getValidEmbedding() {
 	//get init node
 	srand(time(NULL));
 	int n = Randness::instance().get_a_random_number(0, currEmbedding.getTotalNumWords());
-	std::cout << "init rw : first node " << n << std::endl;
+	std::cout << "init rw : first node " << n << " degree: " << g->getDegreeOfNodeAt(n) <<  std::endl;
 	currEmbedding.addWord(n);
 
 	std::unordered_set<int> expansions = currEmbedding.getValidElementsForExpansion();
@@ -146,7 +146,7 @@ bool EmbeddingSpace<T,A>::getValidEmbedding() {
 		for (int k = 0; k < n; k++)
 			it++;
 
-		std::cout << "init rw : new word " << *it << std::endl;
+		std::cout << "init rw : new word " << *it << " degree: " << g->getDegreeOfNodeAt(*it) << std::endl;
 		currEmbedding.addWord(*it);
 		expansions = currEmbedding.getValidElementsForExpansion();
 		if (expansions.empty()) {
@@ -166,7 +166,7 @@ bool EmbeddingSpace<T,A>::getValidEmbeddingWithNode(int n) {
         	std::cout << "error: init rw invalid first node: " << n << std::endl;
 		exit(1);
 	}
-        std::cout << "init rw : first node " << n << std::endl;
+	std::cout << "init rw : first node " << n << " degree: " << g->getDegreeOfNodeAt(n) <<  std::endl;
         currEmbedding.addWord(n);
 
         std::unordered_set<int> expansions = currEmbedding.getValidElementsForExpansion();
@@ -183,7 +183,7 @@ bool EmbeddingSpace<T,A>::getValidEmbeddingWithNode(int n) {
                 for (int k = 0; k < n; k++)
                         it++;
 
-                std::cout << "init rw : new word " << *it << std::endl;
+		std::cout << "init rw : new word " << *it << " degree: " << g->getDegreeOfNodeAt(*it) << std::endl;
                 currEmbedding.addWord(*it);
                 expansions = currEmbedding.getValidElementsForExpansion();
                 if (expansions.empty()) {
@@ -200,7 +200,7 @@ bool EmbeddingSpace<T,A>::getValidEmbeddingWithNodes(std::vector<int> &ns) {
         currEmbedding.reset();
 
 	for (int n : ns) { 
-	        std::cout << "init rw : node " << n << std::endl;
+		std::cout << "init rw : first node " << n << " degree: " << g->getDegreeOfNodeAt(n) <<  std::endl;
         	currEmbedding.addWord(n);
 	}
 
@@ -217,7 +217,7 @@ bool EmbeddingSpace<T,A>::getValidEmbeddingWithNodes(std::vector<int> &ns) {
                 for (int k = 0; k < n; k++)
                         it++;
 
-                std::cout << "init rw : new word " << *it << std::endl;
+		std::cout << "init rw : new word " << *it << " degree: " << g->getDegreeOfNodeAt(*it) << std::endl;
                 currEmbedding.addWord(*it);
                 expansions = currEmbedding.getValidElementsForExpansion();
                 if (expansions.empty()) {
@@ -275,6 +275,8 @@ bool EmbeddingSpace<T,A>::init_rw() {
 	}
 
 	if (r) {
+		double maxEmbScore = getEmbeddingScore(currEmbedding);
+		T bestEmbedding = currEmbedding;
 		//search for a better initial embedding.
 		for(int i = 0; i < INIT_RW_STEPS; i++) {
 			if (i%10000==0) std::cout << "init rw step: " << i << std::endl;
@@ -282,19 +284,33 @@ bool EmbeddingSpace<T,A>::init_rw() {
 			//std::cout << "bla: " << currEmbedding << " " << mod.first << std::endl; 
 			if (!mod.second) {
 				std::cout << "warning: no neighbors were found! aborting..." << std::endl;
-				return r;
+				exit(1);
 			}
-			//std::cout << "ble: " <<  currEmbedding << " " << mod.first << std::endl; 
+			//std::cout << "ble: " << currEmbedding << " " << mod.first << std::endl;
 			currEmbedding.replaceWord(mod.first.rmId,mod.first.addId);
 			//if emb is not valid, return to the previous one.	
 			if (!isValidEmbedding(currEmbedding)) {
 				currEmbedding.replaceWord(mod.first.addId,mod.first.rmId);
 				i++; //counts as a step
 			}
+			else {
+				double embScore = getEmbeddingScore(currEmbedding);
+				if (maxEmbScore <= embScore) {
+					//std::cout << "new initial emb score: " << embScore << std::endl;
+					maxEmbScore = embScore;
+					bestEmbedding = currEmbedding;
+				}
+			}
 		}
+		currEmbedding = bestEmbedding;
 	}
 
 	return r;
+}
+
+template <class T, class A>
+double EmbeddingSpace<T,A>::getEmbeddingScore(T &e) {
+	return 1.;	
 }
 
 template <class T, class A>
@@ -1145,7 +1161,7 @@ TourStats EmbeddingSpace<T,A>::groupEstimateUsingTour(T embedding, SuperEmbeddin
 		if (sameGroup) {
 			if (!isTransitive) updateGroupStats(embedding, embeddingCopy, tourStats);
 			else updateGroupStats(previousEmbedding, embeddingCopy, tourStats);
-			LOG(debug) << "Tour: " << tourId << " Embedding: " << embeddingCopy << " Degree: " << getEmbeddingDegree(embeddingCopy) ;
+			//LOG(debug) << "Tour: " << tourId << " Embedding: " << embeddingCopy << " Degree: " << getEmbeddingDegree(embeddingCopy) ;
 		}
 
 		if (!isValid) {
@@ -1441,7 +1457,7 @@ SuperEmbedding<T> EmbeddingSpace<T,A>::createBFSGroup(T &embedding, int size) {
 	std::cout.setf(std::ios::fixed);
 	std::cout << "SuperNode Size: " << se.getNumberOfEmbeddings() << " External Degree: " << se.getExternalDegree() << " Internal Degree: " << se.getInternalDegree()  << std::endl;
 #endif
-	//std::cout << "SuperNode Size: " << se.getNumberOfEmbeddings() << " External Degree: " << se.getExternalDegree() << " Internal Degree: " << se.getInternalDegree()  << " Has all: " << se.getHasAll() << std::endl;
+	std::cout << "SuperNode Size: " << se.getNumberOfEmbeddings() << " External Degree: " << se.getExternalDegree() << " Internal Degree: " << se.getInternalDegree()  << " Has all: " << se.getHasAll() << std::endl;
 
 	return se;
 }
@@ -1537,14 +1553,20 @@ SuperEmbedding<T> EmbeddingSpace<T,A>::createSNTopEmbeddingsGroup(T &embedding, 
 template <class T, class A>
 double EmbeddingSpace<T,A>::getEmbeddingDegree(T &e, ModSet &mods) {
 #ifdef CACHE
-	if (emb_neighbor_cacheg.getAccess()%10000==0) {
-		std::cout << "getEmbeddingDegree ";
-		emb_neighbor_cacheg.printResume();
-	}
-	size_t hash = e.getHash();
-	boost::optional<e_cache&> t = emb_neighbor_cacheg.get(hash);
-	if (t) {
-		return t->degree;
+	bool has = e.hasHighDegreeNode(.9); 
+	//bool has = true;
+	size_t hash;
+	boost::optional<e_cache&> t;
+	if (has) {
+		if (emb_neighbor_cacheg.getAccess()%1000==0) {
+			std::cout << "getEmbeddingDegree cache";
+			emb_neighbor_cacheg.printResume();
+		}
+		hash = e.getHash();
+		t = emb_neighbor_cacheg.get(hash);
+		if (t) {
+			return t->degree;
+		}
 	}
 #endif
 	e_cache r;
@@ -1553,7 +1575,7 @@ double EmbeddingSpace<T,A>::getEmbeddingDegree(T &e, ModSet &mods) {
 		std::cout << "warning: no neighbors were found!" << std::endl;	
 	}
 #ifdef CACHE
-	if (hasNeighbor)
+	if (has && hasNeighbor)
 		emb_neighbor_cacheg.insert(hash, r);
 #endif
 
@@ -1568,38 +1590,46 @@ double EmbeddingSpace<T,A>::getEmbeddingDegree(T &e) {
 
 template <class T, class A>
 std::pair<Mod,bool> EmbeddingSpace<T,A>::getNextRandomModification(T &e, ModSet &mods) {
-#ifdef CACHE
-	if (emb_neighbor_cacheg.getAccess()%10000==0) {
-		std::cout << "getNextRandomModification cache ";
-		emb_neighbor_cacheg.printResume();
-	}
-	size_t hash = e.getHash();
-	boost::optional<e_cache &> t = emb_neighbor_cacheg.get(hash);
-	if (t) {
-		if (t->used_mods<e_cache::NUM_EXTRA_NEIGHBORS) {
-			std::pair<Mod,double> mod(t->mods[t->used_mods], true);
-			t->used_mods++;
-			return mod;
-		}	
-	}
-#endif
+	//try to get by rejection
 	std::pair<Mod,bool> mod = getNextRandomModificationByRejection(e, mods);
 	if (mod.second) return mod;
 
 #ifdef CACHE
-	if (t) {
+	bool has = e.hasHighDegreeNode(.9); 
+	//bool has = true;
+	size_t hash;
+	boost::optional<e_cache &> t;
+	if (has) {
+		if (emb_neighbor_cacheg.getAccess()%1000==0) {
+			std::cout << "getNextRandomModification cache ";
+			emb_neighbor_cacheg.printResume();
+		}
+		hash = e.getHash();
+		t = emb_neighbor_cacheg.get(hash);
+		if (t) {
+			if (t->used_mods<e_cache::NUM_EXTRA_NEIGHBORS) {
+				std::pair<Mod,bool> mod(t->mods[t->used_mods], true);
+				t->used_mods++;
+				return mod;
+			}	
+		}
+	}
+#endif
+
+#ifdef CACHE
+	if (has && t) {
 		//correcting the hit
 		emb_neighbor_cacheg.setHit(emb_neighbor_cacheg.getHit()-1);
 		emb_neighbor_cacheg.setMiss(emb_neighbor_cacheg.getMiss()+1);
 		bool hasNeighbor = computeEmbeddingNeighborhood(e, t.get(), mods);
-		std::pair<Mod,double> mod(t->mods[t->used_mods], hasNeighbor);
+		std::pair<Mod,bool> mod(t->mods[t->used_mods], hasNeighbor);
 		t->used_mods++;
 		return mod;
 	}
 #endif
 
-	e_cache r;
-	bool hasNeighbor = computeEmbeddingNeighborhood(e, r, mods);
+	e_cache c;
+	bool hasNeighbor = computeEmbeddingNeighborhood(e, c, mods);
 	
 	if (!hasNeighbor && mods.empty()) {
 		std::cout << "warning: there are no embedding neighbors!" << std::endl;
@@ -1611,14 +1641,15 @@ std::pair<Mod,bool> EmbeddingSpace<T,A>::getNextRandomModification(T &e, ModSet 
 		return getNextRandomModification(e);
 	}
 
-	r.used_mods++;
+	c.used_mods++;
 
 #ifdef CACHE
-	if (hasNeighbor)
-		emb_neighbor_cacheg.insert(hash, r);
+	if (has && hasNeighbor)
+		emb_neighbor_cacheg.insert(hash, c);
 #endif
 
-	return std::pair<Mod,bool>(r.mods[0], hasNeighbor);
+	//return std::pair<Mod,bool>(c.rmods.rvr[0], hasNeighbor);
+	return std::pair<Mod,bool>(c.mods[0], hasNeighbor);
 }
 
 template <class T, class A>
@@ -1668,9 +1699,7 @@ void EmbeddingSpace<T,A>::aggregateEmbeddingClass(T &e, TourStats &r,  A &a) {
 	for (int k = 0;  k < (int) r.groups.size(); k++) {
 		factor+=1/r.groupsDegree[k];
 		totalNumEmbs+=(r.groupsSize[k]/(double)REDUCTION_FACTOR);
-
 	}
-
 	a.aggregate(e.getBlissCodeHashValue(), PatternStats(factor, totalNumEmbs, totalNumGroups));	
 }
 

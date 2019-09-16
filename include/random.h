@@ -22,11 +22,16 @@ class Randness {
 public:
 
 //thread_local static unsigned s;
-thread_local static sfmt_t* sfmt_pt;;
-thread_local static boost::mt19937 *mt_pt;;
+thread_local static sfmt_t* sfmt_pt;
+thread_local static boost::mt19937 *mt_pt;
 thread_local static pcg32_random_t *pcg_pt;
 
 Randness();
+~Randness() {
+	if (sfmt_pt!=NULL) free(sfmt_pt);
+	if (mt_pt!=NULL) free(mt_pt);
+	if (pcg_pt!=NULL) free(pcg_pt);
+} 
 
 static sfmt_t* init_sfmt_pt() {
         std::hash<std::thread::id> hash_fn;
@@ -99,6 +104,7 @@ inline double random_uni01() {
 }
 
 inline unsigned int get_a_random_number(int lowest, int highest) {
+	//std::cout << "lowest: " << lowest << " highest: " << highest << std::endl;
 	if (highest-1 == lowest) {
 		return lowest;		
   	} 
@@ -113,7 +119,7 @@ inline unsigned int get_a_random_number(int lowest, int highest) {
 		if (sfmt_pt==NULL) {
 		  	sfmt_pt = init_sfmt_pt();
 		}
-		r = sfmt_genrand_uint32(sfmt_pt)%highest + lowest;
+		r = sfmt_genrand_uint32(sfmt_pt)%(highest-lowest) + lowest;
 	}
 	//with boost mt
 	else if (RANDOM_TYPE == RND_MT) {
@@ -128,7 +134,7 @@ inline unsigned int get_a_random_number(int lowest, int highest) {
 		if (pcg_pt==NULL) {
   			pcg_pt = init_pcg_pt();
 		}
-		r = pcg32_random_r(pcg_pt)%highest + lowest;
+		r = pcg32_random_r(pcg_pt)%(highest-lowest) + lowest;
 	}
 	else {
 		exit(1);

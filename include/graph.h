@@ -54,7 +54,12 @@ struct Graph {
 		int largestDegree;
 		std::vector<Node> nodes;
 		std::vector<Edge> edges;
+		
 		std::vector<int> comp;
+		std::vector<int> coreness;
+		std::vector<int> layer;
+		std::vector<int> degrees;
+		std::vector<int> colors;
 
 		uint numNodesIdx;
 		uint numEdgesIdx;
@@ -87,6 +92,8 @@ struct Graph {
 		int getWeightOfNodeAt(int);
 		int getLargestNodeDegree();
 		NeighborhoodSet &getNeighborhoodVertexOfVertexAt(int);
+		NeighborhoodSet getKNeighborhoodVertexOfVertexAt(int, int);
+		NeighborhoodSet getKNeighborhoodVertexOfVertexAt(int, int, std::unordered_set<int>&);
 		std::vector<int> &getNeighborhoodIdxVertexOfVertexAt(int);
 		std::vector<int> &getNeighborhoodIdxEdgeOfVertexAt(int);
 		NeighborhoodSet &getNeighborhoodEdgeOfVertexAt(int);
@@ -122,7 +129,14 @@ struct Graph {
 		static bool nodeMatches(Graph &, int , Graph &, int );
 		static bool nodePartialMatch(Graph&, Graph&, std::vector<int>&, int);
 		static bool subgraphMatching(Graph&, Graph&, std::vector<int>&);
-
+	
+		bool isCyclic(std::unordered_set<int> &);
+		bool isCyclicUtil(int, std::vector<bool> &, int, std::unordered_set<int> &); 
+		std::vector<int> &getNodesDegrees();
+		std::vector<int> &getNodesCoreness();	
+		std::vector<int> &getNodesLayers();	
+		bool kcoreDFSUtil(int , std::vector<bool> &, std::vector<int> &, int );
+		std::vector<int> computeKCore(int); 
 		std::vector<int> bfsOrder(int);
 		bool isConnected();
 
@@ -131,6 +145,7 @@ struct Graph {
 		size_t getNaiveCodeHashValue();
 		size_t getBlissCodeHashValue();
 
+		void colorNodes(int);
 		int getRandomNodeBiased();
 		int getRandomEdgeBiased();
 		void randomizeNodes();
@@ -138,14 +153,17 @@ struct Graph {
 		IntIntMap getEdgeLabelDistribution();
 		void modifyByAddingNodes(int, double); 
 		std::vector<int> getPathBetweenNodes(int, int, int);
-		std::map<int,int> markConnectedComponentsWithinSet(std::unordered_set<int> &);
+		std::vector<int> getConnectedNodes(std::unordered_set<int> &, int);
+		std::map<int,std::vector<int>> markConnectedComponentsWithinSet(std::unordered_set<int> &);
 		void connectedComponentsDFSWithinSet(std::unordered_set<int> &, int, int); 
-		std::map<int,int> markConnectedComponentsWithoutSet(std::unordered_set<int> &);
-		void connectedComponentsDFSWithoutSet(std::unordered_set<int> &, int, int); 
-		std::map<int,int> markConnectedComponentsWithinSet(boost::dynamic_bitset<> &);
-		void connectedComponentsDFSWithinSet(boost::dynamic_bitset<> &, int, int); 
-		std::map<int,int> markConnectedComponentsWithoutSet(boost::dynamic_bitset<> &);
-		void connectedComponentsDFSWithoutSet(boost::dynamic_bitset<> &, int, int); 
+		std::map<int,std::vector<int>> markConnectedComponents();
+		void connectedComponentsDFS(int, int); 
+		//std::map<int,int> markConnectedComponentsWithoutSet(std::unordered_set<int> &);
+		//void connectedComponentsDFSWithoutSet(std::unordered_set<int> &, int, int); 
+		//std::map<int,int> markConnectedComponentsWithinSet(boost::dynamic_bitset<> &);
+		//void connectedComponentsDFSWithinSet(boost::dynamic_bitset<> &, int, int); 
+		//std::map<int,int> markConnectedComponentsWithoutSet(boost::dynamic_bitset<> &);
+		//void connectedComponentsDFSWithoutSet(boost::dynamic_bitset<> &, int, int); 
 
 };
 

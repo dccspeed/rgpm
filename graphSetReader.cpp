@@ -64,6 +64,8 @@ std::pair<Graph,bool> GraphSetReader::readGraph() {
 		line++;
 		std::string currentLine;
 		std::getline(ifs, currentLine);
+		boost::algorithm::trim_left(currentLine);
+		boost::algorithm::trim_right(currentLine);
 		if (ifs.good()==false) break;
 
 		std::vector<std::string> tokenList;
@@ -103,7 +105,7 @@ std::pair<Graph,bool> GraphSetReader::readGraph() {
 				int id2 = atoi(tokenList[2].c_str()) + total_vertices;
 				int l = insertEdgeLabel(tokenList[3]);
 				//std::cout << "u edge " << "id1 " << id1 << " id2 " << id2 << " label " << l << std::endl;
-				data.insertEdge(Edge(0, std::min(id1,id2), std::max(id1,id2), l));
+				data.insertEdge(Edge(data.getNumberOfEdges(), std::min(id1,id2), std::max(id1,id2), l));
 				//data.insertEdge(Edge(0,id2, id1,l));
 			}
 			else if (tokenList[0].compare("a")==0 && tokenList.size()==4)
@@ -112,7 +114,7 @@ std::pair<Graph,bool> GraphSetReader::readGraph() {
 				int id2 = atoi(tokenList[2].c_str()) + total_vertices;
 				std::string label(tokenList[3]);
 				int l = insertEdgeLabel(label);
-				data.insertEdge(Edge(0, std::min(id1,id2), std::max(id1,id2), l));
+				data.insertEdge(Edge(data.getNumberOfEdges(), std::min(id1,id2), std::max(id1,id2), l));
 			}
 			else
 			{
@@ -160,6 +162,8 @@ std::pair<Graph,bool> GraphSetReader::readTransactionData() {
 		line++;
 		std::string currentLine;
 		std::getline(ifs, currentLine);
+		boost::algorithm::trim_left(currentLine);
+		boost::algorithm::trim_right(currentLine);
 		if (ifs.good()==false) break;
 
 		std::vector<std::string> tokenList;
@@ -201,7 +205,7 @@ std::pair<Graph,bool> GraphSetReader::readTransactionData() {
 				int id2 = atoi(tokenList[2].c_str()) + total_vertices;
 				int l = insertEdgeLabel(tokenList[3]);
 				//std::cout << "u edge " << "id1 " << id1 << " id2 " << id2 << " label " << l << std::endl;
-				data.insertEdge(Edge(0, std::min(id1,id2), std::max(id1,id2), l));
+				data.insertEdge(Edge(data.getNumberOfEdges(), std::min(id1,id2), std::max(id1,id2), l));
 				//data.insertEdge(Edge(0,id2, id1,l));
 			}
 			else if (tokenList[0].compare("a")==0 && tokenList.size()==4)
@@ -210,7 +214,7 @@ std::pair<Graph,bool> GraphSetReader::readTransactionData() {
 				int id2 = atoi(tokenList[2].c_str()) + total_vertices;
 				std::string label(tokenList[3]);
 				int l = insertEdgeLabel(label);
-				data.insertEdge(Edge(0, std::min(id1,id2), std::max(id1,id2), l));
+				data.insertEdge(Edge(data.getNumberOfEdges(), std::min(id1,id2), std::max(id1,id2), l));
 			}
 			else
 			{
@@ -231,6 +235,79 @@ std::pair<Graph,bool> GraphSetReader::readTransactionData() {
 #endif
 			}
 		}
+	}
+
+	mapIdToLabels(label2idNode, id2labelNode);
+	mapIdToLabels(label2idEdge, id2labelEdge);
+
+	//setting number of node labels
+	data.setNumberOfNodeLabels(label2idNode.size());	 
+	data.setNumberOfEdgeLabels(label2idEdge.size());	 
+
+	return std::pair <Graph, bool> (data, ifs.good());
+}
+
+
+std::pair<Graph,bool> GraphSetReader::readGraphEdgeList() {
+
+	Graph data;
+	uint line=0;
+	uint vertices=0;
+	while (ifs.good())
+	{
+		line++;
+		std::string currentLine;
+		std::getline(ifs, currentLine);
+		boost::algorithm::trim_left(currentLine);
+		boost::algorithm::trim_right(currentLine);
+		if (ifs.good()==false) break;
+
+		std::vector<std::string> tokenList;
+		boost::split(tokenList,currentLine,boost::is_any_of(" "));
+		//tokenList = split(currentLine, " ", 4);
+		std::vector<std::string>::iterator currentToken = tokenList.begin();
+		//std::cout << " Get Line " << currentLine << " Tokens " << tokenList.size() << std::endl;
+		if (!tokenList.empty() && currentToken!=tokenList.end() && (tokenList[0].compare("#")!=0))
+		{	
+			if (tokenList.size()==2)
+			{
+				int id1 = atoi(tokenList[0].c_str());
+				int id2 = atoi(tokenList[1].c_str());
+				int l = insertEdgeLabel("0");
+				//std::cout << "u edge " << "id1 " << id1 << " id2 " << id2 << " label " << l << std::endl;
+				data.insertEdge(Edge(data.getNumberOfEdges(), std::min(id1,id2), std::max(id1,id2), l));
+				//data.insertEdge(Edge(0,id2, id1,l));
+				vertices = std::max(id1,id2);
+			}
+			else 
+			{
+				printf("line %d has more fields than expected\n", line);
+				printf("%s\n\n", currentLine.c_str());
+			
+				exit(1);
+#ifdef DEBUG
+				if (DEBUG>=INFO){
+					std::cout << "INFO - Parsing Database: Invalid line found when parsing "  << "..." << std::endl;
+					std::cout << "Ignoring Line " << line << ": " << currentLine << std::endl;
+				}
+				if (DEBUG>=VERBOSE){
+					std::cout << "Printing the tokens found on the line: " << std::endl;
+					int count=0;
+					for(std::vector<std::string>::iterator field=tokenList.begin(); field!=tokenList.end(); ++field, ++count)
+						std::cout << "Token[ " << count << "]: <" << *field << ">"<< std::endl;
+				}
+#endif
+			}
+		}
+		
+	}
+	
+	//create vertices vector
+	for (uint id = 0; id <= vertices; id++) {
+		std::string label("0");
+		int l = insertNodeLabel(label);
+		data.insertNode(Node(id,l,std::vector<int>()));
+		//std::cout << "v vertex " << "id " << id << " label " << l << std::endl;
 	}
 
 

@@ -22,6 +22,7 @@ public :
     bool hasEdge(int v);
     EdgeInducedEmbedding();
     EdgeInducedEmbedding(Graph *g);
+    EdgeInducedEmbedding(Graph *g, std::vector<int>);
     void setFromEmbedding(EdgeInducedEmbedding other);
     //void copy(EdgeInducedEmbedding other);
     void reset();
@@ -44,6 +45,7 @@ public :
 
     std::vector<int> getValidElementsForExpansionSorted();
     std::vector<int> &getValidElementsForExpansionSorted(int);
+    std::unordered_set<int> getValidElementsForExpansionWith(std::unordered_set<int> &);
     std::unordered_set<int> getValidElementsForExpansion();
     NeighborhoodSet &getValidElementsForExpansion(int);
     std::unordered_set<int> getValidElementsForContraction();

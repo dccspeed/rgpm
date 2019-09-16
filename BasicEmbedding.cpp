@@ -18,6 +18,18 @@
 	degree=0;
 	isPoisonPill = false;
     }
+    
+    BasicEmbedding::BasicEmbedding(Graph *g, std::vector<int> words) {
+        init();
+	graph = g;
+	numNeighbors=0;
+	degree=0;
+	isPoisonPill = false;
+    }
+  
+  
+    BasicEmbedding::~BasicEmbedding() {
+    };
 
     void BasicEmbedding::init() {
         reset();
@@ -216,14 +228,77 @@ bool BasicEmbedding::isSamePattern(BasicEmbedding &e) {
 	return r;
 }*/
 
+bool BasicEmbedding::hasEdgeLabel(int l) {
+       	std::vector<int> &edges = getEdges();
+	for (int i : edges) {
+		Edge e = graph->getEdgeAt(i);
+		if (e.getLabel()==l) return true;
+	}
+	return false;
+}
+
+std::vector<int> BasicEmbedding::getEdgesWithLabel(int l) {
+	std::vector<int> edgesWithLabel;
+        std::vector<int> &edges = getEdges();
+        for (int i : edges) {
+                Edge e = graph->getEdgeAt(i);
+                if (e.getLabel()==l) edgesWithLabel.push_back(i);
+        }
+        return edgesWithLabel;
+}
+
+size_t BasicEmbedding::getNaiveCodeHashValue() {
+       	std::vector<int> &vertices = getVertices();
+       	std::vector<int> &edges = getEdges();
+
+	std::unordered_map<int, int> map_vertices;
+	
+	//map vertices
+	int pos = 0;
+	for (int i : vertices) {
+		map_vertices[i] = pos;
+		pos++;
+	}
+	
+	size_t seed = 0;
+	for (int i : edges) {
+		Edge e = graph->getEdgeAt(i);
+		boost::hash_combine(seed, e.getLabel() * 2654435761);
+
+		//including node src
+		Node src = graph->getNodeAt(e.getFromNodeId());
+		std::unordered_map<int, int>::iterator it = map_vertices.find(e.getFromNodeId());
+		if (it==map_vertices.end()) {
+			std::cout << "error: impossible to build naive code! vertice id : " << e.getFromNodeId() << std::endl;
+			exit(1);
+		}
+		boost::hash_combine(seed, it->second * 2654435761);
+		boost::hash_combine(seed, src.getLabel() * 2654435761);
+		
+		//including node dest
+		Node dest = graph->getNodeAt(e.getToNodeId());
+		it = map_vertices.find(e.getToNodeId());
+		if (it==map_vertices.end()) {
+			std::cout << "error: impossible to build naive code! vertice id : " << e.getToNodeId() << std::endl;
+			exit(1);
+		}
+		boost::hash_combine(seed, it->second * 2654435761);
+		boost::hash_combine(seed, dest.getLabel() * 2654435761);
+	}
+
+	return seed;
+}
+
 size_t BasicEmbedding::getBlissCodeHashValue() {
-	bliss::Graph bg = this->getBlissGraph();	
-	return Canonical::getHash(bg);
+	//bliss::Graph bg = this->getBlissGraph();	
+	//return Canonical::getHash(bg);
+	return Canonical::getHash(*this);
 }
 
 size_t BasicEmbedding::getBlissCodeHashValue(std::vector<int> &ls) {
-	bliss::Graph bg = this->getBlissGraph(ls);	
-	return Canonical::getHash(bg);
+	//bliss::Graph bg = this->getBlissGraph(ls);	
+	//return Canonical::getHash(bg);
+	return Canonical::getHash(*this);
 }
 
 int BasicEmbedding::getNumberOfSharedWordIds(BasicEmbedding &embedding) {
@@ -359,13 +434,11 @@ size_t BasicEmbedding::getHash() {
 	std::vector<int> words(getWords());
 	std::sort(words.begin(), words.end());
 
-	/*
-	   std::cout << "Embedding to hash: "; 
-	   for (int i = 0; i < words.size(); i++) {
-	   std::cout << words[i]  << " ";
-	   }
-	   std::cout << std::endl;
-	 */
+	//std::cout << "Embedding to hash: "; 
+	//for (int i = 0; i < words.size(); i++) {
+	//   std::cout << words[i]  << " ";
+	//}
+	//std::cout << std::endl;
 
 	container_hash<std::vector<int>> hash;
 
@@ -410,6 +483,18 @@ std::pair<size_t,int> BasicEmbedding::getWordConnectionHash(int wordId, ModSet &
                 }
         }
         return std::pair<size_t, int> (seed,n);
+}
+
+bool BasicEmbedding::hasHighDegreeNode(double p) {
+	std::vector<int> vertices = getVertices();
+	for (int i : vertices) {
+		double pi = (double) (i+1) / (double) graph->getNumberOfNodes();
+		//std::cout << "pi " << pi << " p " << p << std::endl;	
+		if (pi >= p) { 
+			return true;	
+		}
+	}
+	return false;
 }
 
 void BasicEmbedding::print() {
@@ -515,26 +600,3 @@ NeighborhoodSet BasicEmbedding::getWordNeighbors() {
 	}
 	return neighs;
 }
-
-void BasicEmbedding::blissTest() {
-      //bliss::Stats stats;
-      bliss::Graph bg = getBlissGraph();
-
-      //bg.write_dimacs(stdout);
-      //const unsigned int* cl = bg.canonical_form(stats, &report_aut, stdout);
-
-      //fprintf(stdout, "Canonical labeling: ");
-      /*bliss::print_permutation(stdout, bg.get_nof_vertices(), cl, 0);
-      fprintf(stdout, "\n");
-      fprintf(stdout, "[ ");
-      for (int i = 0; i < bg.get_nof_vertices(); i++)
-      fprintf(stdout, "%d ", cl[i]);
-      fprintf(stdout, "]\n");*/
-	
-      //bliss::Graph *bc = bg.permute(cl);
-      //bc->write_dimacs(stdout);
-      //bc->get_hash();
-
-      Canonical::getHash(bg);
-}
-

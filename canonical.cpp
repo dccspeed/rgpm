@@ -1,10 +1,12 @@
 #include "canonical.h"
 
+tbb::atomic<int> Canonical::hits = 0;
+tbb::atomic<int> Canonical::misses = 0;
 tbb::concurrent_hash_map<size_t, size_t> Canonical::pattern_to_canonical = tbb::concurrent_hash_map<size_t, size_t> ();
-tbb::concurrent_hash_map<size_t, Canonical::PatternInfo*> Canonical::naives = tbb::concurrent_hash_map<size_t, Canonical::PatternInfo*> ();
-tbb::concurrent_hash_map<size_t, Canonical::PatternInfo*> Canonical::canonicals = tbb::concurrent_hash_map<size_t, Canonical::PatternInfo*> ();
+//tbb::concurrent_hash_map<size_t, Canonical::PatternInfo*> Canonical::naives = tbb::concurrent_hash_map<size_t, Canonical::PatternInfo*> ();
+//tbb::concurrent_hash_map<size_t, Canonical::PatternInfo*> Canonical::canonicals = tbb::concurrent_hash_map<size_t, Canonical::PatternInfo*> ();
 
-size_t Canonical::getHashScratch(bliss::Graph &bg) {
+/*size_t Canonical::getHashScratch(bliss::Graph &bg) {
 	bliss::Stats stats;
 	//size_t N = bg.get_nof_vertices();
 
@@ -14,6 +16,103 @@ size_t Canonical::getHashScratch(bliss::Graph &bg) {
 
 	delete bc;
 	return canCode;
+}*/
+
+//get canonical with embedding directly  
+size_t Canonical::getHash(BasicEmbedding &e) {
+	size_t naiveCode = e.getNaiveCodeHashValue();
+	tbb::concurrent_hash_map<size_t, size_t>::accessor a;
+	bool r = Canonical::pattern_to_canonical.insert(a, naiveCode);       // creates by default if not exists, acquires lock
+	
+	if (r) { // it means that it is new
+		bliss::Graph bg = e.getBlissGraph();
+		bliss::Stats stats;
+		const unsigned int* perm = bg.canonical_form(stats, NULL, NULL);
+		bliss::Graph *bc = bg.permute(perm);
+		a->second = bc->get_hash();
+		delete bc;
+		Canonical::misses++;
+	}	
+	else {
+		Canonical::hits++;	
+	}
+
+	size_t code = a->second;
+	a.release();
+
+	if (Canonical::hits+Canonical::misses%10000==0) {
+		std::cout << "Caninocal hashmap hits: " << Canonical::hits << " misses: " << Canonical::misses << std::endl;
+	}	
+	
+	return code;
+}
+
+/*size_t Canonical::getMyHash(BasicEmbedding &e) {
+	size_t naiveCode = e.getNaiveCodeHashValue();
+	tbb::concurrent_hash_map<size_t, size_t>::accessor a;
+	bool r = Canonical::pattern_to_canonical.insert(a, naiveCode);       // creates by default if not exists, acquires lock
+	
+	if (r) { // it means that it is new
+		
+
+		//build adj-list for edges
+		std::vector<int> &edges = e.getEdges();		
+		int adjlist[edges.size()][edges.size()+1]; 
+		for (uint i = 0; i < edges.size(); i++) {
+			adjlist[i][0]=0;
+			for (uint j = (i+1); j < edgegs.size(); j++) {
+				if (g->isNeighborEdge(edges[i], edges[j])) {
+					adjlist[i][++adjlist[i][0]] = j;
+					adjlist[j][++adjlist[i][0]] = i;
+				}
+		
+			}
+		}
+
+		Canonical::misses++;
+	}	
+	else {
+		Canonical::hits++;	
+	}
+
+	size_t code = a->second;
+	a.release();
+
+	if (Canonical::hits+Canonical::misses%10000==0) {
+		std::cout << "Caninocal hashmap hits: " << Canonical::hits << " misses: " << Canonical::misses << std::endl;
+	}	
+	
+	return code;
+
+}*/
+
+//get canonical with graph directly  
+size_t Canonical::getHash(Graph &g) {
+	size_t naiveCode = g.getNaiveCodeHashValue();
+	tbb::concurrent_hash_map<size_t, size_t>::accessor a;
+	bool r = Canonical::pattern_to_canonical.insert(a, naiveCode);       // creates by default if not exists, acquires lock
+	
+	if (r) { // it means that it is new
+		bliss::Graph bg = g.getBlissGraph();
+		bliss::Stats stats;
+		const unsigned int* perm = bg.canonical_form(stats, NULL, NULL);
+		bliss::Graph *bc = bg.permute(perm);
+		a->second = bc->get_hash();
+		delete bc;
+		Canonical::misses++;
+	}	
+	else {
+		Canonical::hits++;	
+	}
+
+	size_t code = a->second;
+	a.release();
+
+	if (Canonical::hits+Canonical::misses%10000==0) {
+		std::cout << "Caninocal hashmap hits: " << Canonical::hits << " misses: " << Canonical::misses << std::endl;
+	}	
+
+	return code;
 }
 
 size_t Canonical::getHash(bliss::Graph &bg) {
@@ -72,31 +171,34 @@ size_t Canonical::getHash(bliss::Graph &bg) {
 
 	size_t code = a->second;
 	a.release();
-		
-	//fill other maps
+	
+	/*//create accessor to fill other maps
 	tbb::concurrent_hash_map<size_t, PatternInfo*>::accessor b;
-	r = Canonical::naives.insert(b, naiveCode);       // creates by default if not exists, acquires lock
-	if (r) {
-		b->second = naiveInfo;
-	}
-	else if (naiveInfo) {
-		delete naiveInfo;
-	}
+		
+	//fill map naive info
+	bool r1 = Canonical::naives.insert(b, naiveCode);       // creates by default if not exists, acquires lock
+	if (r1) b->second = naiveInfo;
+	else if (naiveInfo) delete naiveInfo;
 	b.release();
-	r = Canonical::canonicals.insert(b, code);       // creates by default if not exists, acquires lock
-	if (r) {
-		b->second = canonicalInfo;
-	}
-	else if (canonicalInfo) {
-		delete canonicalInfo;
-	}
+	
+	//fill map canonical info
+	bool r2 = Canonical::canonicals.insert(b, code);       // creates by default if not exists, acquires lock
+	if (r2) b->second = canonicalInfo;
+	else if (canonicalInfo) delete canonicalInfo;
 	b.release();
 
+	//sanaty check
+	if (r!=r1 || r!=r2) {
+		std::cout << "error: canonical hashmaps are incorrect!" << std::endl;
+		exit(1);
+	}*/
+
+	// canonical code
 	return code;
 }
 
 
-unsigned int* Canonical::getPermutation(bliss::Graph &bg) {
+/*unsigned int* Canonical::getPermutation(bliss::Graph &bg) {
 	size_t naiveCode = bg.get_hash();
         tbb::concurrent_hash_map<size_t, PatternInfo*>::accessor b;
         bool r = Canonical::naives.find(b, naiveCode);       // creates by default if not exists, acquires lock
@@ -111,7 +213,7 @@ unsigned int* Canonical::getPermutation(bliss::Graph &bg) {
 		return getPermutation(bg);
 	}
 	
-}
+}*/
 
 /**
  * The hook function that prints the found automorphisms.
