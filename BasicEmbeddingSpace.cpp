@@ -621,7 +621,7 @@ void EmbeddingSpace<T,A>::expand_embedding_group(T &e, int wordId, int *nValid, 
 		}
 
 		if (!filterEmbedding(e)) {
-
+			std::cout << e << std::endl;
 		TourStats stats = getExactGroupStats(e);
 		filterGroupStatsByOwner(e, stats);
 		if (!stats.empty()) aggregateEmbeddingClass(e, stats, agg);
